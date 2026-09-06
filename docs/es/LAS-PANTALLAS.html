@@ -1,0 +1,108 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Las pantallas — Konami&#x27;s Game Master (Konami, 1986)</title>
+<style>
+:root{--tinta:#cfd0d4;--suave:#83868f;--fondo:#000;--panel:#0c0e13;--linea:#23262e;
+  --rojo:#ff897d;--cyan:#65dbef;--verde:#3eb849;--oro:#ded087}
+@media (prefers-color-scheme:light){:root{--tinta:#191a1e;--suave:#5a5d66;--fondo:#e9e7e1;
+  --panel:#f7f6f2;--linea:#d0cdc5;--rojo:#b23f34;--cyan:#1c6b7c;--verde:#2b7734;--oro:#8a7420}}
+:root[data-theme="dark"]{--tinta:#cfd0d4;--suave:#83868f;--fondo:#000;--panel:#0c0e13;
+  --linea:#23262e;--rojo:#ff897d;--cyan:#65dbef;--verde:#3eb849;--oro:#ded087}
+:root[data-theme="light"]{--tinta:#191a1e;--suave:#5a5d66;--fondo:#e9e7e1;--panel:#f7f6f2;
+  --linea:#d0cdc5;--rojo:#b23f34;--cyan:#1c6b7c;--verde:#2b7734;--oro:#8a7420}
+*{box-sizing:border-box}
+body{margin:0;background:var(--fondo);color:var(--tinta);padding:0 1.25rem 6rem;
+  font:15px/1.7 ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+.w{max-width:1120px;margin:0 auto}
+.n{max-width:68ch}
+h1,h2,h3,h4{font-weight:400;text-wrap:balance}
+a{color:var(--cyan)}
+img{image-rendering:pixelated;max-width:100%;height:auto;display:block}
+header.top{display:flex;flex-direction:column;align-items:center;gap:1.5rem;
+  padding:4rem 0 2rem;text-align:center}
+header.top img{width:min(100%,642px)}
+.claim{max-width:60ch;color:var(--suave);font-size:1.05rem}
+.claim b{color:var(--tinta);font-weight:400}
+.ficha{display:flex;flex-wrap:wrap;justify-content:center;gap:0 1.5rem;width:100%;
+  font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--suave);
+  border-top:1px solid var(--linea);border-bottom:1px solid var(--linea);padding:.85rem 0}
+.ficha b{color:var(--rojo);font-weight:400}
+nav{display:flex;flex-wrap:wrap;gap:1.25rem;justify-content:center;padding:1.25rem 0;
+  font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+nav a{color:var(--suave);text-decoration:none;border-bottom:1px solid transparent}
+nav a:hover,nav a:focus{color:var(--tinta);border-bottom-color:var(--rojo)}
+nav.docs{border-top:1px solid var(--linea);border-bottom:1px solid var(--linea);
+  margin-bottom:1rem}
+section{margin-top:4.5rem;scroll-margin-top:1rem}
+section>h2{font-size:1rem;letter-spacing:.1em;text-transform:uppercase;
+  border-left:3px solid var(--rojo);padding-left:.9rem;margin:0 0 1.5rem}
+.cifras{display:grid;gap:1px;background:var(--linea);border:1px solid var(--linea);
+  grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
+.cifra{background:var(--panel);padding:1.1rem}
+.cifra b{display:block;font-size:1.7rem;color:var(--oro);font-weight:400;
+  font-variant-numeric:tabular-nums;line-height:1.2}
+.cifra span{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--suave)}
+.hall{border-top:1px solid var(--linea);padding-top:1.75rem;margin-top:2.5rem}
+.hall:first-of-type{border-top:0;padding-top:0;margin-top:0}
+.hall h3{margin:0 0 .75rem;font-size:1.15rem;color:var(--rojo)}
+.hall h4{color:var(--oro);margin:1.5rem 0 .5rem;font-size:.95rem}
+.hall p{margin:0 0 1rem}
+pre.asm{background:var(--panel);border-left:2px solid var(--verde);margin:1.25rem 0;
+  padding:1rem 1.1rem;overflow-x:auto;font-size:13px;line-height:1.6;color:var(--tinta)}
+.par{display:grid;gap:1.25rem;grid-template-columns:1fr}
+@media(min-width:820px){.par{grid-template-columns:1fr 1fr}}
+.par figure{margin:0}
+table{border-collapse:collapse;width:100%;margin:1.25rem 0;font-size:13px;display:block;
+  overflow-x:auto}
+th,td{text-align:left;padding:.5rem .75rem;border-bottom:1px solid var(--linea)}
+th{color:var(--suave);font-weight:400;font-size:11px;letter-spacing:.07em;text-transform:uppercase}
+td.num{font-variant-numeric:tabular-nums;color:var(--oro)}
+.nivel{margin-top:2rem}
+.nivel h3{margin:0 0 .9rem;font-size:.95rem;letter-spacing:.06em;text-transform:uppercase}
+.nivel em{color:var(--cyan);font-style:normal}
+.sep{color:var(--suave);margin:0 .6rem}
+.rejilla{display:grid;gap:.9rem;grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+.rejilla figure{margin:0;background:var(--panel);box-shadow:0 0 0 1px var(--linea)}
+.rejilla figcaption{display:flex;justify-content:space-between;padding:.45rem .65rem;
+  font-size:11px;color:var(--suave);border-top:1px solid var(--linea)}
+.dir{font-variant-numeric:tabular-nums;color:var(--verde)}
+footer{margin-top:5rem;padding-top:1.5rem;border-top:1px solid var(--linea);
+  color:var(--suave);font-size:12px}
+
+/* Aviso de trabajo en curso: tiene que verse antes que las cifras, porque un
+   100% mal leido hace mas dano que no ponerlo. */
+.aviso{background:#3a2a10;border-left:3px solid var(--oro);margin:1.5rem auto;
+  padding:1rem 1.2rem;max-width:900px;border-radius:4px}
+.aviso p{margin:0;color:var(--tinta);font-size:15px;line-height:1.65}
+.galeria{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+  gap:1.5rem;margin:1.5rem 0}
+.galeria figure{margin:0}
+.galeria img{width:100%;height:auto;image-rendering:pixelated;
+  border:1px solid var(--linea);border-radius:3px}
+.galeria figcaption{color:var(--suave);font-size:13px;margin-top:.5rem}
+audio{display:block;width:100%;max-width:640px;margin:.75rem 0 1.5rem}
+</style>
+<div class="w"><nav class="top"><a href="index.html">Portada</a><a href="EMPEZAR.html">Empezar</a><a href="EL-JUEGO.html">El juego</a><a href="LAS-PANTALLAS.html" style=color:var(--tinta)>Las pantallas</a><a href="EL-CARTUCHO.html">El cartucho</a><a href="EL-CODIGO.html">El código</a><a href="HALLAZGOS.html">Hallazgos</a><a href="EN-EL-EMULADOR.html">En el emulador</a><a href="PREGUNTAS-ABIERTAS.html">Preguntas abiertas</a><a href="../THE-SCREENS.html" style="margin-left:auto;color:var(--oro)">English</a></nav>
+<h1 id="las-pantallas">Las pantallas</h1>
+<p>Ninguna de estas imágenes es una captura. Todas salen de ejecutar en Python los mismos pasos que ejecuta el Z80, y están <b>cotejadas byte a byte contra la VRAM de openMSX</b>.</p>
+<h2 id="lo-que-dice-el-cotejo">Lo que dice el cotejo</h2>
+<p><code>make vram</code> deja correr el cartucho, vuelca los 16.384 bytes de VRAM en cinco instantes y los compara con los que montamos nosotros. El mejor volcado cae a <b>un solo byte distinto</b>, y ese byte no es un error:</p>
+<table><tr><th>zona</th><th>distintos</th></tr><tr><td>tabla de color, <code>0x0000</code>–<code>0x17FF</code></td><td>0 de 6.144</td></tr><tr><td>patrones de sprite, <code>0x1800</code>–<code>0x1FFF</code></td><td>0 de 2.048</td></tr><tr><td>tabla de patrones, <code>0x2000</code>–<code>0x37FF</code></td><td>0 de 6.144</td></tr><tr><td>tabla de nombres, <code>0x3800</code>–<code>0x3AFF</code></td><td><b>1</b> de 768</td></tr><tr><td>atributos de sprite, <code>0x3B00</code>–<code>0x3B7F</code></td><td>0 de 128</td></tr></table>
+<p>Ese byte es <code>0x39A9</code>: el emulador tiene <code>0xF5</code> y nosotros <code>0xAC</code>. Son los dos estados del <b>cursor parpadeando</b>, que <code>0x527C</code> alterna cada <code>0x8000</code> vueltas del contador de <code>0xD147</code>.</p>
+<p>Y en otros instantes discrepan <b>dieciocho</b> bytes, que son la otra cosa que se mueve: <code>0x3B08</code>–<code>0x3B17</code> con los atributos de sprite de <code>0x798F</code> en vez de los de <code>0x797F</code>, más las casillas que los acompañan. Es <b>el adorno del menú</b>, que <code>0x52C3</code> cambia con el bit 0 de <code>0xD144</code>. Un volcado cualquiera cae en uno de los dos fotogramas.</p>
+<p>El emulador confirmó además los siete registros del VDP de <code>0x6284</code>, R3=<code>0x7F</code> y R4=<code>0x07</code> incluidos.</p>
+<h2 id="la-pantalla-de-titulo">La pantalla de título</h2>
+<p><img src="../imagenes/titulo.png" alt="La pantalla de título"></p>
+<p>Seis piezas, en este orden (<code>0x77D6</code> y <code>0x7805</code>): los cuatro bloques comprimidos del fondo, dos rectángulos de caracteres, el bloque de rótulos con el <code>© KONAMI 1986</code> que fecha la compilación, otros dos comprimidos y los 24 bytes de atributos de sprite.</p>
+<p>Montarla tiene una trampa de orden. El fondo del modo RANKING se carga <b>antes</b> que el título, y su tabla de color va apareciendo poco a poco: <code>0x533B</code> la pinta de <code>0xF0</code> a razón de 21 bytes por pasada, seis pasadas, <code>0x0880</code>–<code>0x0C6F</code> clavado. Puesto al final, ese relleno se come el <code>0xFC</code> que <code>0x780D</code> deja en <code>0x0980</code> y los colores que <code>0x77E4</code> suelta en <code>0x0C00</code>: 448 bytes de diferencia contra el emulador.</p>
+<h2 id="los-tres-punteros-del-menu-de-arranque">Los tres punteros del menú de arranque</h2>
+<p><img src="../imagenes/arranque-0.png" alt="Señalando GAME"> <img src="../imagenes/arranque-1.png" alt="Señalando MODIFY"> <img src="../imagenes/arranque-2.png" alt="Señalando SELF"></p>
+<p><code>0x4FA9</code>, <code>0x4FB5</code> y <code>0x4FC1</code>: doce casillas cada uno, tres filas de cuatro —el <code>bc,0x0304</code> de <code>0x4F91</code>—, pintadas siempre en el mismo sitio, la VRAM <code>0x39AB</code>. <b>Leídos como bytes no dicen nada.</b> Dibujados se ve lo que son: un puntero de tiza que cambia de inclinación para señalar GAME, MODIFY o SELF en la pizarra.</p>
+<h2 id="los-menus-que-montan-pantalla-propia">Los menús que montan pantalla propia</h2>
+<p><img src="../imagenes/menu-modify.png" alt="MODIFY MODE"> <img src="../imagenes/menu-self.png" alt="SELF MODE"> <img src="../imagenes/menu-modo-ranking.png" alt="Modo RANKING"> <img src="../imagenes/menu-cargar-pantalla.png" alt="Cargar pantalla"> <img src="../imagenes/menu-modo-pantalla.png" alt="Modo pantalla"></p>
+<p>Éstos borran <code>0x200</code> bytes desde <code>0x3880</code> y pintan las bandas de colores de arriba y abajo. Las bandas no son un dibujo guardado: las escribe el bucle de <code>0x504E</code>, que repite cada casilla <b>dos veces</b> y avanza, con B=<code>0x10</code>, o sea 32 bytes —una fila entera— por vuelta; como A empieza en 1 y da la vuelta con <code>and 0x0F</code>, la fila sale <code>1,1,2,2,…,15,15,0,0</code>. El <code>dec c</code> de <code>0x505F</code> la repite cuatro veces, y <code>0x503C</code> hace todo eso dos veces: las filas 0 a 3 y las 20 a 23.</p>
+<h2 id="los-menus-que-se-abren-sobre-el-juego">Los menús que se abren sobre el juego</h2>
+<p><img src="../imagenes/menu-principal.png" alt="El menú de disco y cinta"> <img src="../imagenes/menu-guardar.png" alt="Qué dato se guarda"> <img src="../imagenes/menu-cargar.png" alt="Qué dato se carga"> <img src="../imagenes/menu-ranking.png" alt="El modo ranking"> <img src="../imagenes/menu-impresora.png" alt="Elegir impresora"></p>
+<p>Éstos sólo borran <code>0x100</code> bytes desde <code>0x3A00</code>, las ocho filas de abajo. <b>En la máquina real la mitad de arriba es la partida corriendo</b>: <code>0x4275</code> llama antes a la rutina que se lleva la VRAM del juego a la RAM para poder devolverla. Aquí salen sobre negro porque no hay juego que poner.</p>
+<p>Que el menú de cargar no tenga SCREEN DATA no es un descuido: en cinta no cabe.</p>
+<footer><p><em>Konami's Game Master</em> lo publico Konami en 1986; su numero de catalogo es RC-735 y son 16 KB. No es un juego: es un cartucho de trucos que se enchufa junto a otro y le da vidas o le salta de fase. Todos los derechos sobre el cartucho y sobre los juegos que nombra siguen siendo de sus titulares. Este trabajo es de preservacion, estudio y documentacion, y la imagen del cartucho no se distribuye.</p></footer></div>

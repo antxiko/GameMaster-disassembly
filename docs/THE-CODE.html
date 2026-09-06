@@ -1,0 +1,124 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The code — Konami&#x27;s Game Master (Konami, 1986)</title>
+<style>
+:root{--tinta:#cfd0d4;--suave:#83868f;--fondo:#000;--panel:#0c0e13;--linea:#23262e;
+  --rojo:#ff897d;--cyan:#65dbef;--verde:#3eb849;--oro:#ded087}
+@media (prefers-color-scheme:light){:root{--tinta:#191a1e;--suave:#5a5d66;--fondo:#e9e7e1;
+  --panel:#f7f6f2;--linea:#d0cdc5;--rojo:#b23f34;--cyan:#1c6b7c;--verde:#2b7734;--oro:#8a7420}}
+:root[data-theme="dark"]{--tinta:#cfd0d4;--suave:#83868f;--fondo:#000;--panel:#0c0e13;
+  --linea:#23262e;--rojo:#ff897d;--cyan:#65dbef;--verde:#3eb849;--oro:#ded087}
+:root[data-theme="light"]{--tinta:#191a1e;--suave:#5a5d66;--fondo:#e9e7e1;--panel:#f7f6f2;
+  --linea:#d0cdc5;--rojo:#b23f34;--cyan:#1c6b7c;--verde:#2b7734;--oro:#8a7420}
+*{box-sizing:border-box}
+body{margin:0;background:var(--fondo);color:var(--tinta);padding:0 1.25rem 6rem;
+  font:15px/1.7 ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+.w{max-width:1120px;margin:0 auto}
+.n{max-width:68ch}
+h1,h2,h3,h4{font-weight:400;text-wrap:balance}
+a{color:var(--cyan)}
+img{image-rendering:pixelated;max-width:100%;height:auto;display:block}
+header.top{display:flex;flex-direction:column;align-items:center;gap:1.5rem;
+  padding:4rem 0 2rem;text-align:center}
+header.top img{width:min(100%,642px)}
+.claim{max-width:60ch;color:var(--suave);font-size:1.05rem}
+.claim b{color:var(--tinta);font-weight:400}
+.ficha{display:flex;flex-wrap:wrap;justify-content:center;gap:0 1.5rem;width:100%;
+  font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--suave);
+  border-top:1px solid var(--linea);border-bottom:1px solid var(--linea);padding:.85rem 0}
+.ficha b{color:var(--rojo);font-weight:400}
+nav{display:flex;flex-wrap:wrap;gap:1.25rem;justify-content:center;padding:1.25rem 0;
+  font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+nav a{color:var(--suave);text-decoration:none;border-bottom:1px solid transparent}
+nav a:hover,nav a:focus{color:var(--tinta);border-bottom-color:var(--rojo)}
+nav.docs{border-top:1px solid var(--linea);border-bottom:1px solid var(--linea);
+  margin-bottom:1rem}
+section{margin-top:4.5rem;scroll-margin-top:1rem}
+section>h2{font-size:1rem;letter-spacing:.1em;text-transform:uppercase;
+  border-left:3px solid var(--rojo);padding-left:.9rem;margin:0 0 1.5rem}
+.cifras{display:grid;gap:1px;background:var(--linea);border:1px solid var(--linea);
+  grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
+.cifra{background:var(--panel);padding:1.1rem}
+.cifra b{display:block;font-size:1.7rem;color:var(--oro);font-weight:400;
+  font-variant-numeric:tabular-nums;line-height:1.2}
+.cifra span{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--suave)}
+.hall{border-top:1px solid var(--linea);padding-top:1.75rem;margin-top:2.5rem}
+.hall:first-of-type{border-top:0;padding-top:0;margin-top:0}
+.hall h3{margin:0 0 .75rem;font-size:1.15rem;color:var(--rojo)}
+.hall h4{color:var(--oro);margin:1.5rem 0 .5rem;font-size:.95rem}
+.hall p{margin:0 0 1rem}
+pre.asm{background:var(--panel);border-left:2px solid var(--verde);margin:1.25rem 0;
+  padding:1rem 1.1rem;overflow-x:auto;font-size:13px;line-height:1.6;color:var(--tinta)}
+.par{display:grid;gap:1.25rem;grid-template-columns:1fr}
+@media(min-width:820px){.par{grid-template-columns:1fr 1fr}}
+.par figure{margin:0}
+table{border-collapse:collapse;width:100%;margin:1.25rem 0;font-size:13px;display:block;
+  overflow-x:auto}
+th,td{text-align:left;padding:.5rem .75rem;border-bottom:1px solid var(--linea)}
+th{color:var(--suave);font-weight:400;font-size:11px;letter-spacing:.07em;text-transform:uppercase}
+td.num{font-variant-numeric:tabular-nums;color:var(--oro)}
+.nivel{margin-top:2rem}
+.nivel h3{margin:0 0 .9rem;font-size:.95rem;letter-spacing:.06em;text-transform:uppercase}
+.nivel em{color:var(--cyan);font-style:normal}
+.sep{color:var(--suave);margin:0 .6rem}
+.rejilla{display:grid;gap:.9rem;grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+.rejilla figure{margin:0;background:var(--panel);box-shadow:0 0 0 1px var(--linea)}
+.rejilla figcaption{display:flex;justify-content:space-between;padding:.45rem .65rem;
+  font-size:11px;color:var(--suave);border-top:1px solid var(--linea)}
+.dir{font-variant-numeric:tabular-nums;color:var(--verde)}
+footer{margin-top:5rem;padding-top:1.5rem;border-top:1px solid var(--linea);
+  color:var(--suave);font-size:12px}
+
+/* Aviso de trabajo en curso: tiene que verse antes que las cifras, porque un
+   100% mal leido hace mas dano que no ponerlo. */
+.aviso{background:#3a2a10;border-left:3px solid var(--oro);margin:1.5rem auto;
+  padding:1rem 1.2rem;max-width:900px;border-radius:4px}
+.aviso p{margin:0;color:var(--tinta);font-size:15px;line-height:1.65}
+.galeria{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+  gap:1.5rem;margin:1.5rem 0}
+.galeria figure{margin:0}
+.galeria img{width:100%;height:auto;image-rendering:pixelated;
+  border:1px solid var(--linea);border-radius:3px}
+.galeria figcaption{color:var(--suave);font-size:13px;margin-top:.5rem}
+audio{display:block;width:100%;max-width:640px;margin:.75rem 0 1.5rem}
+</style>
+<div class="w"><nav class="top"><a href="index.html">Home</a><a href="GETTING-STARTED.html">Start</a><a href="THE-GAME.html">The game</a><a href="THE-SCREENS.html">The screens</a><a href="THE-CARTRIDGE.html">The cartridge</a><a href="THE-CODE.html" style=color:var(--tinta)>The code</a><a href="FINDINGS.html">Findings</a><a href="IN-THE-EMULATOR.html">In the emulator</a><a href="OPEN-QUESTIONS.html">Open questions</a><a href="es/EL-CODIGO.html" style="margin-left:auto;color:var(--oro)">Castellano</a></nav>
+<h1 id="the-code">The code</h1>
+<p><b>10,522 bytes of traced code</b> (64.2%) and <b>5,862 of data</b> (35.8%), adding up to the cartridge&#x27;s 16,384: <b>100% explained, zero bytes unassigned</b>. 663 routines, <b>22.1% of instructions carrying a comment</b> and <b>not one routine below 10%</b>.</p>
+<h2 id="how-it-gets-inside-the-game">How it gets inside the game</h2>
+<p>This is the central idea, and it lives at <code>0x4C76</code>.</p>
+<ol><li>It copies the game&#x27;s <b>first 256 INIT bytes</b> to <code>0xD861</code>, reading them from the other slot with RDSLT.</li><li>It looks in that copy for the sequence <code>9B FD</code>, which is the operand of <code>ld (0xFD9B),hl</code> — the instruction a game uses to install its interrupt routine into the BIOS&#x27;s H.KEYI hook.</li><li>It replaces it with the five bytes at <code>0x4CB9</code>. With the <code>22</code> opcode already in front, the instruction goes from</li></ol>
+<pre><code>   22 9B FD        ld (0xFD9B),hl</code></pre>
+<p>to</p>
+<pre><code>   22 30 D1        ld (0xD130),hl   ; the game&#x27;s hook, saved
+   CD 14 D8        call 0xD814      ; and control to the Game Master</code></pre>
+<ol><li>And it runs <b>the patched copy, not the original</b>.</li></ol>
+<p>So it does not patch the game: it patches the <b>RAM copy of its start-up</b>. From then on it runs once per frame inside the game and can poke its variables.</p>
+<p>It works across the whole catalogue because every Konami cartridge starts the same way. Checked over the 42 cartridge ROMs in the collection: <b>all 40 Konami ones carry that instruction</b> in the 256 bytes of their INIT. The only two that do not are Casio World Open — not a Konami title — and the Game Master itself.</p>
+<h2 id="how-it-knows-which-game-is-next-to-it">How it knows which game is next to it</h2>
+<p>Two routes, and the order matters (<code>0x5E64</code>):</p>
+<p><b>1. The second header.</b> It reads two bytes from <code>0x4010</code> of the neighbour and compares them with <code>AB</code> and <code>CD</code>. If it is <code>AB</code> it takes 19 bytes as they come; if <code>CD</code>, 21, and it distributes them according to a <b>flag byte</b>: each <code>rra</code> pulls out one bit saying whether the next field is present, and any field that is missing keeps the default from <code>0x6034</code>. Only five of the 42 ROMs in the collection carry that header.</p>
+<p><b>2. The signature table.</b> For everything else — which is most of the catalogue — <code>0x5EF5</code> <b>adds up the 256 bytes from <code>0x5000</code> to <code>0x50FF</code></b> of the neighbour&#x27;s ROM and looks that 16-bit sum up in the table at <code>0x5F3A</code>: 62 four-byte entries pointing at 29 stand-in headers of 19 bytes, for 28 games. It is 29 and not 28 because Antarctic Adventure needs two, one per pair of its own builds, and they differ in <b>a single byte</b>.</p>
+<p>Either way the result ends up at <code>0xD300</code> onwards in the same format: the two BCD pairs of the catalogue number, then pointers to the game&#x27;s variables in its RAM.</p>
+<h2 id="the-cheats">The cheats</h2>
+<p>The table at <code>0x5B02</code> has twenty-one three-byte entries — catalogue number and routine — and it is where whatever each game needs in particular lives. Nearly all of them end by jumping to <code>0x5D13</code>, the universal three-instruction cheat.</p>
+<p>What changes is the arithmetic. <code>0x5E0F</code> divides by C through subtraction and shifts, and that C is <b>how many stages the game has</b>:</p>
+<table><tr><th>game</th><th>by</th><th>what it writes</th></tr><tr><td>RC-701 Antarctic Adventure</td><td>10</td><td>the track, at <code>0xE0E2</code>, <b>with two tables</b></td></tr><tr><td>RC-710 / RC-711 Hyper Olympic</td><td>4</td><td>the event, and eight bytes per cartridge</td></tr><tr><td>RC-713 Magical Tree</td><td>9</td><td>the level and <b>the starting score</b></td></tr><tr><td>RC-717 Hyper Sports 2</td><td>3</td><td>the event</td></tr><tr><td>RC-718 Hyper Rally</td><td>13</td><td>the stage and its pair of bytes</td></tr><tr><td>RC-721 Sky Jaguar</td><td>8</td><td>not a stage: <b>a position</b> along the run</td></tr><tr><td>RC-727 King&#x27;s Valley</td><td>15</td><td>the room, the lap and a pair from the table</td></tr><tr><td>RC-730 Road Fighter</td><td>6</td><td>the course, and it clears the screen</td></tr></table>
+<p>And two pairs <b>share a routine</b>: RC-710 with RC-711 — told apart inside by their number — and <b>RC-700 with RC-716</b>, that is Athletic Land and Cabbage Patch Kids.</p>
+<h2 id="the-menus-three-pieces-always-the-same">The menus: three pieces, always the same</h2>
+<p>Thirteen menus, all built alike:</p>
+<pre><code>ld hl,&lt;labels&gt;       and `call 0x6294` paints them
+ld hl,&lt;slots&gt;        where the cursor may sit, one row per line
+ld b,&lt;N&gt;             how many lines it has
+call 0x6581          picks one, and returns it in A
+...
+call 0x6368          dispatches
+&lt;table of N pointers&gt;    ← GLUED to the call, inside the flow</code></pre>
+<p><code>0x6368</code> does a <code>pop hl</code> to grab the return address — which is the byte after the CALL — and reads word number A from there. <b>The table sits inside the code.</b> There are fourteen of them, and their sizes are not eyeballed: each one comes from the <code>ld b,N</code> that precedes the <code>call 0x6581</code>. <code>tools/menus.py</code> reads them.</p>
+<h2 id="the-font-and-the-formats">The font and the formats</h2>
+<ul><li><b>The labels</b> (<code>0x6294</code>): <code>[VRAM address][characters]0xFE</code>, and <code>0xFF</code> closes. The letters sit where ASCII puts them, but <b>the blank is not <code>0x20</code></b>: <code>0x00</code> separates words and <code>0x40</code> is the highlighted blank that frames the titles (<code>@@MENU@@</code>).</li><li><b>The decompressor</b> (<code>0x62F7</code>): RLE writing <b>straight to the VDP port</b>, bypassing the BIOS. Seven-bit count, bit 7 set means literals and clear means a repeat; a zero count closes, and if the byte was not zero outright, <b>another VRAM address and more runs follow</b>. That last case is easy to miss and leaves the decompression cut off at the first chunk.</li><li>The <code>push hl / pop hl</code> pairs in between do nothing: they are the wait the VDP needs between bytes.</li></ul>
+<h2 id="code-nobody-reaches">Code nobody reaches</h2>
+<p>Four fragments — <code>0x6445</code>, <code>0x6787</code>, <code>0x6904</code> and <code>0x6938</code> — disassemble to correct, well-fitted Z80: they start right after a <code>ret</code> and end right where a label that <em>is</em> used begins. But <b>there is not one 16-bit reference nor one relative jump landing on them</b>, searched across all 16,384 bytes.</p>
+<p>Plus two two-byte doors (<code>0x5022</code> and <code>0x6FB5</code>), each a <code>ld b,N</code> put there to enter the neighbouring routine with a different value, that nobody jumps to.</p>
+<p>It is not the mirage of reading an operand as an opcode, because they do not fall inside another instruction. They are leftovers from an earlier build: there are three of this cartridge.</p>
+<footer><p><em>Konami's Game Master</em> was published by Konami in 1986; its catalogue number is RC-735 and it is 16 KB. It is not a game: it is a cheat cartridge that plugs in alongside another one and grants it lives or skips its stages. All rights in the cartridge and in the games it names remain with their holders. This is preservation, study and documentation work, and the cartridge image is not distributed.</p></footer></div>

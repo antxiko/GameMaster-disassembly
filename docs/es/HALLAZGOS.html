@@ -1,0 +1,126 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hallazgos — Konami&#x27;s Game Master (Konami, 1986)</title>
+<style>
+:root{--tinta:#cfd0d4;--suave:#83868f;--fondo:#000;--panel:#0c0e13;--linea:#23262e;
+  --rojo:#ff897d;--cyan:#65dbef;--verde:#3eb849;--oro:#ded087}
+@media (prefers-color-scheme:light){:root{--tinta:#191a1e;--suave:#5a5d66;--fondo:#e9e7e1;
+  --panel:#f7f6f2;--linea:#d0cdc5;--rojo:#b23f34;--cyan:#1c6b7c;--verde:#2b7734;--oro:#8a7420}}
+:root[data-theme="dark"]{--tinta:#cfd0d4;--suave:#83868f;--fondo:#000;--panel:#0c0e13;
+  --linea:#23262e;--rojo:#ff897d;--cyan:#65dbef;--verde:#3eb849;--oro:#ded087}
+:root[data-theme="light"]{--tinta:#191a1e;--suave:#5a5d66;--fondo:#e9e7e1;--panel:#f7f6f2;
+  --linea:#d0cdc5;--rojo:#b23f34;--cyan:#1c6b7c;--verde:#2b7734;--oro:#8a7420}
+*{box-sizing:border-box}
+body{margin:0;background:var(--fondo);color:var(--tinta);padding:0 1.25rem 6rem;
+  font:15px/1.7 ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+.w{max-width:1120px;margin:0 auto}
+.n{max-width:68ch}
+h1,h2,h3,h4{font-weight:400;text-wrap:balance}
+a{color:var(--cyan)}
+img{image-rendering:pixelated;max-width:100%;height:auto;display:block}
+header.top{display:flex;flex-direction:column;align-items:center;gap:1.5rem;
+  padding:4rem 0 2rem;text-align:center}
+header.top img{width:min(100%,642px)}
+.claim{max-width:60ch;color:var(--suave);font-size:1.05rem}
+.claim b{color:var(--tinta);font-weight:400}
+.ficha{display:flex;flex-wrap:wrap;justify-content:center;gap:0 1.5rem;width:100%;
+  font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--suave);
+  border-top:1px solid var(--linea);border-bottom:1px solid var(--linea);padding:.85rem 0}
+.ficha b{color:var(--rojo);font-weight:400}
+nav{display:flex;flex-wrap:wrap;gap:1.25rem;justify-content:center;padding:1.25rem 0;
+  font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+nav a{color:var(--suave);text-decoration:none;border-bottom:1px solid transparent}
+nav a:hover,nav a:focus{color:var(--tinta);border-bottom-color:var(--rojo)}
+nav.docs{border-top:1px solid var(--linea);border-bottom:1px solid var(--linea);
+  margin-bottom:1rem}
+section{margin-top:4.5rem;scroll-margin-top:1rem}
+section>h2{font-size:1rem;letter-spacing:.1em;text-transform:uppercase;
+  border-left:3px solid var(--rojo);padding-left:.9rem;margin:0 0 1.5rem}
+.cifras{display:grid;gap:1px;background:var(--linea);border:1px solid var(--linea);
+  grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
+.cifra{background:var(--panel);padding:1.1rem}
+.cifra b{display:block;font-size:1.7rem;color:var(--oro);font-weight:400;
+  font-variant-numeric:tabular-nums;line-height:1.2}
+.cifra span{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--suave)}
+.hall{border-top:1px solid var(--linea);padding-top:1.75rem;margin-top:2.5rem}
+.hall:first-of-type{border-top:0;padding-top:0;margin-top:0}
+.hall h3{margin:0 0 .75rem;font-size:1.15rem;color:var(--rojo)}
+.hall h4{color:var(--oro);margin:1.5rem 0 .5rem;font-size:.95rem}
+.hall p{margin:0 0 1rem}
+pre.asm{background:var(--panel);border-left:2px solid var(--verde);margin:1.25rem 0;
+  padding:1rem 1.1rem;overflow-x:auto;font-size:13px;line-height:1.6;color:var(--tinta)}
+.par{display:grid;gap:1.25rem;grid-template-columns:1fr}
+@media(min-width:820px){.par{grid-template-columns:1fr 1fr}}
+.par figure{margin:0}
+table{border-collapse:collapse;width:100%;margin:1.25rem 0;font-size:13px;display:block;
+  overflow-x:auto}
+th,td{text-align:left;padding:.5rem .75rem;border-bottom:1px solid var(--linea)}
+th{color:var(--suave);font-weight:400;font-size:11px;letter-spacing:.07em;text-transform:uppercase}
+td.num{font-variant-numeric:tabular-nums;color:var(--oro)}
+.nivel{margin-top:2rem}
+.nivel h3{margin:0 0 .9rem;font-size:.95rem;letter-spacing:.06em;text-transform:uppercase}
+.nivel em{color:var(--cyan);font-style:normal}
+.sep{color:var(--suave);margin:0 .6rem}
+.rejilla{display:grid;gap:.9rem;grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+.rejilla figure{margin:0;background:var(--panel);box-shadow:0 0 0 1px var(--linea)}
+.rejilla figcaption{display:flex;justify-content:space-between;padding:.45rem .65rem;
+  font-size:11px;color:var(--suave);border-top:1px solid var(--linea)}
+.dir{font-variant-numeric:tabular-nums;color:var(--verde)}
+footer{margin-top:5rem;padding-top:1.5rem;border-top:1px solid var(--linea);
+  color:var(--suave);font-size:12px}
+
+/* Aviso de trabajo en curso: tiene que verse antes que las cifras, porque un
+   100% mal leido hace mas dano que no ponerlo. */
+.aviso{background:#3a2a10;border-left:3px solid var(--oro);margin:1.5rem auto;
+  padding:1rem 1.2rem;max-width:900px;border-radius:4px}
+.aviso p{margin:0;color:var(--tinta);font-size:15px;line-height:1.65}
+.galeria{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+  gap:1.5rem;margin:1.5rem 0}
+.galeria figure{margin:0}
+.galeria img{width:100%;height:auto;image-rendering:pixelated;
+  border:1px solid var(--linea);border-radius:3px}
+.galeria figcaption{color:var(--suave);font-size:13px;margin-top:.5rem}
+audio{display:block;width:100%;max-width:640px;margin:.75rem 0 1.5rem}
+</style>
+<div class="w"><nav class="top"><a href="index.html">Portada</a><a href="EMPEZAR.html">Empezar</a><a href="EL-JUEGO.html">El juego</a><a href="LAS-PANTALLAS.html">Las pantallas</a><a href="EL-CARTUCHO.html">El cartucho</a><a href="EL-CODIGO.html">El código</a><a href="HALLAZGOS.html" style=color:var(--tinta)>Hallazgos</a><a href="EN-EL-EMULADOR.html">En el emulador</a><a href="PREGUNTAS-ABIERTAS.html">Preguntas abiertas</a><a href="../FINDINGS.html" style="margin-left:auto;color:var(--oro)">English</a></nav>
+<h1 id="hallazgos">Hallazgos</h1>
+<h2 id="la-instruccion-que-llevan-los-40-cartuchos-de-konami">La instrucción que llevan los 40 cartuchos de Konami</h2>
+<p>El Game Master se cuela en el juego buscando <code>9B FD</code> en los 256 primeros bytes de su arranque: el operando de <code>ld (0xFD9B),hl</code>, con el que un juego de Konami instala su rutina de interrupción en el gancho H.KEYI.</p>
+<p>Eso convierte una decisión de estilo de la casa en la llave de todo el cartucho. Comprobado sobre las 42 ROM de cartucho de la colección: <b>las 40 de Konami la llevan</b>. Las dos únicas que no son Casio World Open —que no es de Konami— y el propio Game Master.</p>
+<h2 id="la-segunda-cabecera-vista-desde-el-otro-lado">La segunda cabecera, vista desde el otro lado</h2>
+<p>Cuatro desensamblados de esta serie tienen en <code>0x4010</code> una segunda cabecera que no hacía nada visible: Soccer y Football con <code>AB</code>, y Goonies, Nemesis y F-1 Spirit con <code>CD</code>. Se sabía que estaba; no para qué.</p>
+<p>Es para esto. <b>El Game Master la lee.</b> Los 17 bytes de <code>0x4014</code>–<code>0x4024</code> son punteros a las variables del juego en su RAM: dónde guarda las vidas, dónde la fase, dónde el marcador. Un juego que la traiga se explica solo; el resto necesitan que el Game Master les invente una.</p>
+<h2 id="la-tabla-de-firmas-62-entradas-para-28-juegos">La tabla de firmas: 62 entradas para 28 juegos</h2>
+<p>Para los juegos que no llevan cabecera —casi todo el catálogo— <code>0x5EF5</code> <b>suma los 256 bytes de <code>0x5000</code> a <code>0x50FF</code></b> de la ROM del vecino y busca esa suma de 16 bits en la tabla de <code>0x5F3A</code>. 62 entradas de cuatro bytes que apuntan a 29 cabeceras postizas de 19, para 28 juegos: la tabla lleva las compilaciones alternativas de cada uno, hasta cuatro.</p>
+<p><b>La tabla está cotejada, no leída.</b> De los 28, 25 se han comprobado sumando de verdad los bytes de sus ROM. Los otros tres —Circus Charlie, Magical Tree y Comic Bakery— no tienen ROM aquí y salen del manual publicado en <a href="http://www.msxblue.com/manual/gamemaster1_c.htm">msxblue</a>.</p>
+<p>Y binario y manual coinciden <b>hasta en los huecos</b>: ni uno ni otro tienen RC-719, RC-722 ni RC-726.</p>
+<p>Un aviso sobre el cotejo: F-1 Spirit da la misma suma que Billiards (<code>0x7894</code>). Es una colisión de una suma de 16 bits sobre 256 bytes, no una entrada de la tabla: F-1 Spirit es un MegaROM y lleva su propia cabecera <code>CD</code>, así que el Game Master nunca llega a sumarle nada.</p>
+<h2 id="konami-dice-desde-dentro-que-dos-de-sus-juegos-son-el-mismo">Konami dice desde dentro que dos de sus juegos son el mismo</h2>
+<p>La tabla de trucos de <code>0x5B02</code> da una rutina por juego, y hay dos parejas que <b>comparten la suya</b>.</p>
+<p>Una es RC-710 y RC-711, los dos Hyper Olympic, que se distinguen dentro comparando el número de catálogo: la única diferencia entre los dos cartuchos, para el Game Master, son ocho bytes.</p>
+<p>La otra es <b>RC-700 y RC-716</b>. Para el Game Master, Athletic Land y Cabbage Patch Kids son el mismo programa y se les tocan las mismas variables. Es exactamente lo que se midió al desensamblar el segundo —arrastra 439 bytes del primero que no lee nadie—, ahora dicho por la propia Konami desde dentro de su cartucho de trucos.</p>
+<h2 id="antarctic-adventure-necesita-dos-listas-de-fases">Antarctic Adventure necesita dos listas de fases</h2>
+<p><code>0x5BC7</code> y <code>0x5BD1</code>, diez bytes cada una: los valores que hay que meterle en su <code>0xE0E2</code> para empezar en cada etapa. <code>0x5BB4</code> elige una u otra según <code>0xD303</code>, que dice cuál de las dos compilaciones de RC-701 es la de al lado.</p>
+<p>Las dos listas son distintas —<code>0x0D</code> contra <code>0x0F</code> en la tercera, <code>0x35</code> contra <code>0x3C</code> en la última—, y eso es la prueba de que Konami sabía que había dos compilaciones circulando y de que la variable no cae en el mismo sitio en las dos.</p>
+<h2 id="las-fases-que-ofrece-cuadran-con-lo-medido-en-cada-juego">Las fases que ofrece cuadran con lo medido en cada juego</h2>
+<p>El divisor de cada rutina de truco es cuántas fases tiene ese juego. Y coincide con lo que se midió al desensamblarlos: <b>quince en King&#x27;s Valley</b>, trece en Hyper Rally, tres pruebas en Hyper Sports 2, diez pistas en Antarctic Adventure.</p>
+<p>Sky Jaguar es el caso interesante: divide entre ocho, pero lo que escribe <b>no es un número de fase, es una posición</b>. El resto por 256, de <code>0x0000</code> a <code>0x0700</code>. Encaja con lo que se sabía del juego: no tiene fases separadas, es un solo recorrido continuo.</p>
+<h2 id="el-aviso-de-truco-activo-es-el-led-de-caps">El aviso de truco activo es el LED de CAPS</h2>
+<p>El cartucho no puede pintar en la pantalla del juego sin estropearla, así que avisa con la luz del teclado: <code>0x4E70</code> llama a CHGCAP cada vez que se congela o se descongela la partida.</p>
+<p>Y al congelar calla el PSG de verdad: <code>0x4E85</code> se guarda los volúmenes de los tres canales antes de ponerlos a cero, y <code>0x4EF8</code> los devuelve al reanudar. Sin eso, la última nota se quedaría sonando.</p>
+<h2 id="un-byte-que-hace-dos-trabajos">Un byte que hace dos trabajos</h2>
+<p><code>0xD12D</code> guarda el volumen del canal C del PSG <b>y a la vez</b> es el byte bajo del IY con el que se llama entre ranuras. Se puede porque CALSLT sólo mira IYh, que es <code>0xD12E</code> y lleva la ranura.</p>
+<h2 id="los-menus-se-abren-encima-del-juego">Los menús se abren encima del juego</h2>
+<p>Los de disco y cinta sólo borran <code>0x100</code> bytes desde <code>0x3A00</code>, las ocho filas de abajo, y antes <code>0x4275</code> ha llamado a la rutina que se lleva la VRAM del juego a la RAM. En la máquina real, la mitad de arriba de esas pantallas es la partida corriendo.</p>
+<h2 id="cuatro-rutinas-y-dos-puertas-a-las-que-no-llega-nadie">Cuatro rutinas y dos puertas a las que no llega nadie</h2>
+<p><code>0x6445</code>, <code>0x6787</code>, <code>0x6904</code> y <code>0x6938</code> desensamblan a Z80 correcto, empiezan justo detrás de un <code>ret</code> y acaban justo donde arranca una etiqueta que sí se usa. Pero no hay ni una referencia de 16 bits ni un salto relativo que caiga en ellos, buscados por los 16.384 bytes del cartucho.</p>
+<p>Más dos puertas de dos bytes: <code>0x5022</code> y <code>0x6FB5</code>, cada una un <code>ld b,N</code> puesto para entrar a la rutina de al lado con otro valor, a las que no salta nadie.</p>
+<p>No es el espejismo de leer un operando como opcode —no caen dentro de otra instrucción—. Son restos de una compilación anterior: de este cartucho hay tres.</p>
+<p>Y hay cuatro bytes más en el mismo caso: <code>0x628C</code>, pegados detrás de los ocho registros del VDP. El bucle que los escribe para a los ocho.</p>
+<h2 id="si-lleva-la-marca-oculta-y-confirma-un-caracter">Sí lleva la marca oculta, y confirma un carácter</h2>
+<p>En los últimos 22 bytes: <b>RC-735</b> y 19 bytes de katakana que dicen 10バイタノシムカートリッジ —«el cartucho para disfrutar diez veces más»—, que era su eslogan.</p>
+<p>El formato lo descubrió <b>Manuel Pazos</b> (<a href="https://twitter.com/ManuelPazosMSX">@ManuelPazosMSX</a>). Esta marca, de paso, <b>confirma que el <code>0xBA</code> es el alargamiento ー</b>, que en los desensamblados anteriores de la serie estaba sin cerrar.</p>
+<h2 id="el-nombre-del-fichero-lo-escribe-medio-el-cartucho">El nombre del fichero lo escribe medio el cartucho</h2>
+<p>Al guardar en disco no tecleas el nombre entero: la primera letra la pone él según el dato —<code>H</code>, <code>S</code>, <code>G</code> o <code>R</code>, de la tabla de <code>0x68DA</code>—, la extensión es siempre <code>VRM</code>, y detrás va el número de catálogo del juego para que dos juegos no se pisen los ficheros.</p>
+<p>Y la tabla de récords, recién borrada, sale con los seis puestos a nombre de la casa: <code>KONAMI</code>, en <code>0x4A35</code>.</p>
+<footer><p><em>Konami's Game Master</em> lo publico Konami en 1986; su numero de catalogo es RC-735 y son 16 KB. No es un juego: es un cartucho de trucos que se enchufa junto a otro y le da vidas o le salta de fase. Todos los derechos sobre el cartucho y sobre los juegos que nombra siguen siendo de sus titulares. Este trabajo es de preservacion, estudio y documentacion, y la imagen del cartucho no se distribuye.</p></footer></div>

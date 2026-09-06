@@ -1,0 +1,169 @@
+# Puntos de entrada de Konami's Game Master (Konami, RC-735). ROM de 16 KB en
+# 0x4000, European Version de 1986.
+#
+# La BIOS lee la cabecera "AB" y llama a INIT tras inicializar la maquina.
+# Comprobado en el volcado: los bytes 0-9 son 41 42 10 40 00 00 00 00 00 00,
+# o sea que SOLO declara INIT; STATEMENT, DEVICE y TEXT van a cero.
+0x4010   # INIT, declarado en la cabecera del cartucho (bytes 2-3: 10 40)
+
+# --------------------------------------------------------------------------
+# LA VUELTA DESDE EL JUEGO
+#
+# 0x422F arranca el juego del cartucho de al lado, pero antes deja plantada la
+# manera de volver: copia 0x4264-0x426E a 0xC800 y 0x426F-0x4271 a 0xFEDA (el
+# gancho H.TIMI de la BIOS, que se ejecuta una vez por fotograma). Ese gancho
+# es un `jp 0xC800`, y 0xC800 vuelve a meter ESTE cartucho en la pagina 1 con
+# ENASLT y salta a 0x403D. O sea que 0x403D no lo alcanza nadie desde dentro
+# del listado: se entra por ahi DESDE EL JUEGO.
+0x403D   # regreso desde el juego, destino del jp de 0x426E que corre en 0xC800
+
+# --------------------------------------------------------------------------
+# LAS TABLAS DE DESPACHO
+#
+# 0x6368 es el despachador: `pop hl` coge la direccion de retorno, o sea el
+# byte de despues del CALL, y de ahi lee la palabra numero A. La tabla va
+# PEGADA al CALL, dentro del propio flujo de codigo.
+#
+# El tamano de cada tabla NO esta contado a ojo: sale del `ld b,N` que
+# precede al `call 0x6581`, la rutina de elegir opcion en un menu de N lineas,
+# que devuelve en A la elegida. Las trece del cartucho siguen ese mismo patron.
+!tabla 0x4292  6   # desde 0x428f. El menu principal, b=6 en 0x427e: DISK SAVE,
+                   # DISK LOAD, TAPE SAVE, TAPE LOAD, RANKING y PRINTER. La
+                   # tabla acaba justo donde empieza la de bytes de 0x429e, que
+                   # tambien es de seis
+!tabla 0x42D4  5   # desde 0x42d1, b=5 en 0x42c5 sobre el menu de 0x45d8
+!tabla 0x4379  4   # desde 0x4376, b=4 en 0x4365 sobre el menu de 0x460e
+!tabla 0x43EC  5   # desde 0x43e9, b=5 en 0x43dd. Son CINCO y no seis: leyendo
+                   # una palabra mas sale 0x6ecd, que cae dentro del cartucho y
+                   # cuela como puntero, pero el menu solo tiene cinco lineas
+!tabla 0x4449  4   # desde 0x4446, b=4 en 0x4435. Cuatro, no cinco: la quinta
+                   # palabra es 0x4240, que esta en mitad de una instruccion
+!tabla 0x4497  4   # desde 0x4494, b=4 en 0x448f
+!tabla 0x472F  3   # desde 0x472c, b=3 en 0x4727 sobre el menu de 0x48dd
+!tabla 0x4776  3   # desde 0x4773, b=3 en 0x476e sobre el menu de 0x47b6
+!tabla 0x4834  3   # desde 0x4831, b=3 en 0x482c sobre el menu de 0x4894
+!tabla 0x4903  5   # desde 0x4900, b=5 en 0x48fb sobre el menu de 0x4bb7
+!tabla 0x4A22  4   # desde 0x4a1f, b=4 en 0x4a1a sobre el menu de 0x4a8e
+!tabla 0x4F9D  3   # desde 0x4f9a. Este NO viene de un menu, asi que el tamano
+                   # se deduce del reparto de los bytes: con tres punteros la
+                   # tabla acaba en 0x4fa2 y en 0x4fa3 empieza el bloque que la
+                   # propia rutina acaba de mandar a la VRAM (ld hl,0x4fa3 /
+                   # bc=0x0304 en 0x4f8e)
+!tabla 0x5616  2   # desde 0x5613, b=2 en 0x560e sobre el menu de 0x56f1
+!tabla 0x7231  3   # desde 0x722e, b=3 en 0x7229 sobre el menu de 0x7357
+
+# --------------------------------------------------------------------------
+# EL CODIGO QUE NO SE EJECUTA DONDE ESTA
+#
+# Este cartucho tiene que conmutar la ranura de la pagina 1, que es justo donde
+# vive el. Asi que no puede hacerlo desde la ROM: se copia el trozo a RAM y
+# salta alli. Hay cuatro bloques asi, y a ninguno se llega siguiendo el flujo.
+#
+# OJO AL LEERLOS: las direcciones absolutas que llevan dentro apuntan a donde
+# se EJECUTAN, no a donde estan guardadas. Un `jp 0xDA4C` del primer bloque es
+# un salto a su propio byte 0x4C, o sea a 0x412A del listado. La directiva
+# !reubica le da al trazador esa correspondencia para que pueda seguirlos.
+!reubica 0x40DE 0x419A 0xDA00   # 188 bytes (0xBC). Los copia y los llama 0x40D0
+!reubica 0x41A8 0x422F 0xC000   # 135 bytes (0x87). Los copia y los llama 0x419A
+!reubica 0x4264 0x426F 0xC800   # 11 bytes. Los copia 0x4248: vuelve a meter
+                                # ESTE cartucho en la pagina 1 con ENASLT y
+                                # salta a 0x403D
+!reubica 0x426F 0x4272 0xFEDA   # 3 bytes. Los copia 0x4253: un `jp 0xC800`
+                                # plantado en el gancho H.TIMI de la BIOS, que
+                                # es por donde se vuelve del juego
+!reubica 0x4CCA 0x4D17 0xD814   # 77 bytes (0x4D). Los copia 0x4C7F
+!reubica 0x4D17 0x4E61 0xD170   # 330 bytes (0x14A). Los copia 0x4CC7. Aqui vive
+                                # el gancho de interrupcion que 0x4CDB planta en
+                                # H.KEYI: `ld hl,0xD299` es 0xD299-0xD170+0x4D17
+                                # = 0x4E40 de este listado
+!reubica 0x6AD0 0x6ADD 0xD33E   # 13 bytes: la PLANTILLA de la llamada entre
+                                # ranuras. `push iy / push ix / rst 30h / db
+                                # slot,dir / pop ix / pop iy / ret`, con los
+                                # tres bytes de detras del RST a cero. La copia
+                                # 0x6AC1 y 0x6AC3 le rellena en 0xD343 el slot
+                                # -el del propio Game Master, de 0xD12E- y en
+                                # 0xD344 la direccion que llega en HL
+#
+# Los siete salen de leer los LDIR que los copian, no de suponerlos: 0x40D9,
+# 0x41A3, 0x4251, 0x425C, 0x4C7F, 0x4CC7 y 0x6AC1. Hay otras seis copias de ROM
+# a RAM en el cartucho (0x4AB9, 0x4AC4, 0x5C6E, 0x5CBD, 0x5E6D y 0x6665), pero
+# esas llevan DATOS -"KONAMI", parejas de bytes, una tabla de 22- y no codigo.
+
+# --------------------------------------------------------------------------
+# LAS RUTINAS QUE SE LLAMAN CONMUTANDO LA RANURA
+#
+# El bloque que corre en 0xD170 no puede llamar al cartucho con un CALL: para
+# entonces la pagina 1 tiene metido el JUEGO, no el Game Master. Asi que llama
+# por CALSLT (0x001C), con la ranura en IY y la direccion en IX. Cada `ld ix`
+# de esos es un punto de entrada al que no se llega de ninguna otra manera.
+0x4E61   # ld ix / jp 0x001C desde 0x4D4B
+0x54D1   # ld ix / jp 0x001C desde 0x4D69
+0x4EAD   # ld ix / jp 0x001C desde 0x4DBE
+0x4E85   # ld ix / call 0x001C desde 0x4DDA
+0x4E76   # ld ix / call 0x001C desde 0x4DE5, y jp desde 0x4E17
+0x4EF8   # ld ix / call 0x001C desde 0x4E03
+
+# Y lo mismo por la plantilla del RST 30h: 0x6AAA recibe en HL la rutina a la
+# que llamar y la escribe en 0xD344. Estas son las dos que le llegan.
+0x6ADD   # ld hl,0x6ADD / call 0x6AAA desde 0x42B6, 0x43CE, 0x47CF y 0x4ADB
+0x6AF6   # ld hl,0x6AF6 / call 0x6AAA desde 0x43BE y 0x4B13
+
+# --------------------------------------------------------------------------
+# LAS DOS TABLAS DE JUEGO
+#
+# 0x5582 recorre una tabla de filas de tres bytes -numero de catalogo en BCD y
+# rutina-, terminada en 0xFF, comparando contra (0xD301), que son las dos
+# cifras bajas del RC del cartucho de al lado. Sale con `jp (hl)` a la rutina
+# que encuentre, asi que el trazado no puede seguirlo: los destinos van aqui.
+#
+# Las filas son de TRES bytes, no de dos, y por eso no valen para !tabla: se
+# declaran los rangos en el .nocode y se siembran los destinos a mano.
+#
+# La primera tabla, 0x5AD1 (16 entradas). La usa 0x49A5. Solo cuatro rutinas
+# distintas, y una de ellas para doce juegos.
+0x5B42   # Yie Ar Kung-Fu (RC-725)
+0x5B52   # los doce corrientes: RC-700, 702, 703, 704, 705, 706, 712, 713, 714,
+         # 716, 721 y 727
+0x5B5A   # Pippols (RC-729) y Yie Ar Kung-Fu 2 (RC-737)
+0x5B5F   # Mopi Ranger (RC-728)
+
+# La segunda, 0x5B02 (21 entradas). La usa 0x4926, y aqui si hay una rutina
+# casi por juego: es donde vive lo que cada uno necesita de particular.
+0x5B7B   # Athletic Land (RC-700) y Cabbage Patch Kids (RC-716)
+0x5BA0   # Antarctic Adventure (RC-701)
+0x5BDB   # Hyper Olympic 1 y 2 (RC-710 y RC-711)
+0x5C24   # Circus Charlie (RC-712)
+0x5C3A   # Magical Tree (RC-713)
+0x5C8C   # Comic Bakery (RC-714)
+0x5C8F   # Hyper Sports 1 (RC-715)
+0x5C96   # Hyper Sports 2 (RC-717)
+0x5CA2   # Hyper Rally (RC-718)
+0x5CDA   # Sky Jaguar (RC-721)
+0x5CEB   # Yie Ar Kung-Fu (RC-725)
+0x5D1B   # King's Valley (RC-727)
+0x5D6C   # Mopi Ranger (RC-728)
+0x5D87   # Pippols (RC-729)
+0x5D9A   # Road Fighter (RC-730)
+0x5DB9   # Konami's Soccer (RC-732)
+0x5DC2   # Hyper Sports 3 (RC-733)
+0x5DCB   # RC-736
+0x5DF1   # Yie Ar Kung-Fu 2 (RC-737)
+
+# --------------------------------------------------------------------------
+# DOS TROZOS DE LOS BLOQUES REUBICADOS A LOS QUE EL TRAZADO NO ENTRABA
+#
+# Los dos estan DENTRO de un !reubica, o sea que son codigo de verdad; lo que
+# pasa es que al sitio por el que se entra no se llega siguiendo el flujo desde
+# donde empieza el bloque.
+0x4CF1   # dentro del bloque que 0x4CC7 manda a 0xD814: se ejecuta en 0xD83B.
+         # Delante hay un `jp (hl)` calculado (0x4CF0), y ahi se corta el
+         # trazado. Que es codigo se ve en que la primera instruccion es un
+         # `ld hl,0FD00h` seguido de un ldir de 0x2CA bytes a 0xD961: esta
+         # salvando la pagina de trabajo de la BIOS antes de meterse en el
+         # juego
+0x4E40   # dentro del bloque que 0x4CC7 manda a 0xD170: se ejecuta en 0xD299,
+         # que es la direccion que 0x4CDB planta en H.KEYI (0xFD9B). O sea que
+         # ES EL GANCHO DE INTERRUPCION, y a el no se llega llamandolo: lo
+         # llama la maquina cincuenta veces por segundo. Se cambia la pila a
+         # 0xDF80, se copian 0x314 bytes de 0xD500 a 0xF100 y se reinstala el
+         # gancho

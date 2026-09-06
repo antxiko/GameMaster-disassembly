@@ -1,0 +1,109 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The cartridge — Konami&#x27;s Game Master (Konami, 1986)</title>
+<style>
+:root{--tinta:#cfd0d4;--suave:#83868f;--fondo:#000;--panel:#0c0e13;--linea:#23262e;
+  --rojo:#ff897d;--cyan:#65dbef;--verde:#3eb849;--oro:#ded087}
+@media (prefers-color-scheme:light){:root{--tinta:#191a1e;--suave:#5a5d66;--fondo:#e9e7e1;
+  --panel:#f7f6f2;--linea:#d0cdc5;--rojo:#b23f34;--cyan:#1c6b7c;--verde:#2b7734;--oro:#8a7420}}
+:root[data-theme="dark"]{--tinta:#cfd0d4;--suave:#83868f;--fondo:#000;--panel:#0c0e13;
+  --linea:#23262e;--rojo:#ff897d;--cyan:#65dbef;--verde:#3eb849;--oro:#ded087}
+:root[data-theme="light"]{--tinta:#191a1e;--suave:#5a5d66;--fondo:#e9e7e1;--panel:#f7f6f2;
+  --linea:#d0cdc5;--rojo:#b23f34;--cyan:#1c6b7c;--verde:#2b7734;--oro:#8a7420}
+*{box-sizing:border-box}
+body{margin:0;background:var(--fondo);color:var(--tinta);padding:0 1.25rem 6rem;
+  font:15px/1.7 ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+.w{max-width:1120px;margin:0 auto}
+.n{max-width:68ch}
+h1,h2,h3,h4{font-weight:400;text-wrap:balance}
+a{color:var(--cyan)}
+img{image-rendering:pixelated;max-width:100%;height:auto;display:block}
+header.top{display:flex;flex-direction:column;align-items:center;gap:1.5rem;
+  padding:4rem 0 2rem;text-align:center}
+header.top img{width:min(100%,642px)}
+.claim{max-width:60ch;color:var(--suave);font-size:1.05rem}
+.claim b{color:var(--tinta);font-weight:400}
+.ficha{display:flex;flex-wrap:wrap;justify-content:center;gap:0 1.5rem;width:100%;
+  font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--suave);
+  border-top:1px solid var(--linea);border-bottom:1px solid var(--linea);padding:.85rem 0}
+.ficha b{color:var(--rojo);font-weight:400}
+nav{display:flex;flex-wrap:wrap;gap:1.25rem;justify-content:center;padding:1.25rem 0;
+  font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+nav a{color:var(--suave);text-decoration:none;border-bottom:1px solid transparent}
+nav a:hover,nav a:focus{color:var(--tinta);border-bottom-color:var(--rojo)}
+nav.docs{border-top:1px solid var(--linea);border-bottom:1px solid var(--linea);
+  margin-bottom:1rem}
+section{margin-top:4.5rem;scroll-margin-top:1rem}
+section>h2{font-size:1rem;letter-spacing:.1em;text-transform:uppercase;
+  border-left:3px solid var(--rojo);padding-left:.9rem;margin:0 0 1.5rem}
+.cifras{display:grid;gap:1px;background:var(--linea);border:1px solid var(--linea);
+  grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
+.cifra{background:var(--panel);padding:1.1rem}
+.cifra b{display:block;font-size:1.7rem;color:var(--oro);font-weight:400;
+  font-variant-numeric:tabular-nums;line-height:1.2}
+.cifra span{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--suave)}
+.hall{border-top:1px solid var(--linea);padding-top:1.75rem;margin-top:2.5rem}
+.hall:first-of-type{border-top:0;padding-top:0;margin-top:0}
+.hall h3{margin:0 0 .75rem;font-size:1.15rem;color:var(--rojo)}
+.hall h4{color:var(--oro);margin:1.5rem 0 .5rem;font-size:.95rem}
+.hall p{margin:0 0 1rem}
+pre.asm{background:var(--panel);border-left:2px solid var(--verde);margin:1.25rem 0;
+  padding:1rem 1.1rem;overflow-x:auto;font-size:13px;line-height:1.6;color:var(--tinta)}
+.par{display:grid;gap:1.25rem;grid-template-columns:1fr}
+@media(min-width:820px){.par{grid-template-columns:1fr 1fr}}
+.par figure{margin:0}
+table{border-collapse:collapse;width:100%;margin:1.25rem 0;font-size:13px;display:block;
+  overflow-x:auto}
+th,td{text-align:left;padding:.5rem .75rem;border-bottom:1px solid var(--linea)}
+th{color:var(--suave);font-weight:400;font-size:11px;letter-spacing:.07em;text-transform:uppercase}
+td.num{font-variant-numeric:tabular-nums;color:var(--oro)}
+.nivel{margin-top:2rem}
+.nivel h3{margin:0 0 .9rem;font-size:.95rem;letter-spacing:.06em;text-transform:uppercase}
+.nivel em{color:var(--cyan);font-style:normal}
+.sep{color:var(--suave);margin:0 .6rem}
+.rejilla{display:grid;gap:.9rem;grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+.rejilla figure{margin:0;background:var(--panel);box-shadow:0 0 0 1px var(--linea)}
+.rejilla figcaption{display:flex;justify-content:space-between;padding:.45rem .65rem;
+  font-size:11px;color:var(--suave);border-top:1px solid var(--linea)}
+.dir{font-variant-numeric:tabular-nums;color:var(--verde)}
+footer{margin-top:5rem;padding-top:1.5rem;border-top:1px solid var(--linea);
+  color:var(--suave);font-size:12px}
+
+/* Aviso de trabajo en curso: tiene que verse antes que las cifras, porque un
+   100% mal leido hace mas dano que no ponerlo. */
+.aviso{background:#3a2a10;border-left:3px solid var(--oro);margin:1.5rem auto;
+  padding:1rem 1.2rem;max-width:900px;border-radius:4px}
+.aviso p{margin:0;color:var(--tinta);font-size:15px;line-height:1.65}
+.galeria{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+  gap:1.5rem;margin:1.5rem 0}
+.galeria figure{margin:0}
+.galeria img{width:100%;height:auto;image-rendering:pixelated;
+  border:1px solid var(--linea);border-radius:3px}
+.galeria figcaption{color:var(--suave);font-size:13px;margin-top:.5rem}
+audio{display:block;width:100%;max-width:640px;margin:.75rem 0 1.5rem}
+</style>
+<div class="w"><nav class="top"><a href="index.html">Home</a><a href="GETTING-STARTED.html">Start</a><a href="THE-GAME.html">The game</a><a href="THE-SCREENS.html">The screens</a><a href="THE-CARTRIDGE.html" style=color:var(--tinta)>The cartridge</a><a href="THE-CODE.html">The code</a><a href="FINDINGS.html">Findings</a><a href="IN-THE-EMULATOR.html">In the emulator</a><a href="OPEN-QUESTIONS.html">Open questions</a><a href="es/EL-CARTUCHO.html" style="margin-left:auto;color:var(--oro)">Castellano</a></nav>
+<h1 id="the-cartridge">The cartridge</h1>
+<p>16 KB in page 1 (<code>0x4000</code>–<code>0x7FFF</code>), MSX1. The <code>AB</code> header declares <b>only INIT</b> (<code>0x4010</code>); STATEMENT, DEVICE and TEXT are all zero.</p>
+<h2 id="the-problem-it-has-to-solve">The problem it has to solve</h2>
+<p>And it is the whole design of the cartridge.</p>
+<p><b>The Game Master lives in page 1. The game it is cheating lives in page 1 as well</b>, in another slot. The two cannot be switched in at once: the moment you switch the slot to read something from the game, the Game Master vanishes from the memory map — and with it the instruction that was executing.</p>
+<p>Everything else follows from that:</p>
+<ol><li><b>Six blocks of code are copied into RAM and executed there.</b> Switching the slot from ROM would be sawing off the branch you are sitting on.</li><li>Whatever lives in ROM and has to be called with the other slot in is called through <b>CALSLT</b> (<code>0x001C</code>) with the slot in IY, or through the <code>RST 30h</code> template that <code>0x6AAA</code> assembles at <code>0xD33E</code>.</li><li>To read a byte from the neighbour it uses <b>RDSLT</b> (<code>0x000C</code>). <code>0x4CA6</code> is the inter-slot LDIR: it copies BC bytes one at a time, because there is no other way.</li></ol>
+<p>When reading the listing, bear in mind that <b>the absolute addresses inside those blocks point at where they run, not where they are stored</b>. A <code>jp 0xDA4C</code> in the first block is a jump to its own byte <code>0x4C</code>. The tracer has a directive, <code>!reubica</code>, that gives it that mapping; with it the trace went from 52.9% to 60.0%, and with the CALSLT entries it uncovered, to 64.2%.</p>
+<p>The six blocks:</p>
+<table><tr><th>in the listing</th><th>runs at</th><th>what it is</th></tr><tr><td><code>0x40DE</code>–<code>0x419A</code></td><td><code>0xDA00</code></td><td>the slot sweep looking for a cartridge</td></tr><tr><td><code>0x41A8</code>–<code>0x422F</code></td><td><code>0xC000</code></td><td>the one that also recognises the disk ROM</td></tr><tr><td><code>0x4264</code>–<code>0x426F</code></td><td><code>0xC800</code></td><td>eleven bytes: the way back from the game</td></tr><tr><td><code>0x426F</code>–<code>0x4272</code></td><td><code>0xFEDA</code></td><td>three bytes: a <code>jp 0xC800</code> in a BIOS hook</td></tr><tr><td><code>0x4CCA</code>–<code>0x4D17</code></td><td><code>0xD814</code></td><td>where the patch planted in the game jumps to</td></tr><tr><td><code>0x4D17</code>–<code>0x4E61</code></td><td><code>0xD170</code></td><td><b>the interrupt hook</b></td></tr></table>
+<h2 id="the-vram-map">The VRAM map</h2>
+<p>It is not the usual one, and reading it wrong throws the whole screen out. The eight registers are at <code>0x6284</code> and <code>0x6273</code> writes them:</p>
+<table><tr><th>register</th><th>value</th><th>what it places</th></tr><tr><td>R0</td><td><code>0x02</code></td><td>graphics mode 2</td></tr><tr><td>R1</td><td><code>0xE2</code></td><td>display on, 16x16 sprites</td></tr><tr><td>R2</td><td><code>0x0E</code></td><td>name table at <code>0x3800</code></td></tr><tr><td>R3</td><td><code>0x7F</code></td><td><b>colour table at <code>0x0000</code></b></td></tr><tr><td>R4</td><td><code>0x07</code></td><td><b>pattern table at <code>0x2000</code></b></td></tr><tr><td>R5</td><td><code>0x76</code></td><td>sprite attributes at <code>0x3B00</code></td></tr><tr><td>R6</td><td><code>0x03</code></td><td>sprite patterns at <code>0x1800</code></td></tr><tr><td>R7</td><td><code>0xE1</code></td><td>the border</td></tr></table>
+<p><b>R3 and R4 are not addresses: they are base and mask</b>, and they come out the opposite way round from what they look like. Colour ends up at the bottom, at <code>0x0000</code>, and patterns at the top, at <code>0x2000</code>. That is what places the four compressed blocks of the menu background, and it is confirmed against the registers the emulator actually holds.</p>
+<p>Behind those eight there are <b>four more bytes</b> (<code>0x628C</code>: <code>0E 00 18 06</code>) that nobody reads: the loop at <code>0x6279</code> stops at eight, and searching for their addresses across all 16,384 bytes of the cartridge turns up not one reference.</p>
+<h2 id="the-ram">The RAM</h2>
+<p>The cartridge clears the 8 KB from <code>0xC000</code> to <code>0xDFFF</code> at boot and uses them as workspace. The variables that matter most:</p>
+<table><tr><th>address</th><th>what it holds</th></tr><tr><td><code>0xD12E</code></td><td>my slot · <code>0xD12F</code> the neighbour&#x27;s</td></tr><tr><td><code>0xD130</code></td><td>the game&#x27;s <b>own</b> interrupt hook, saved by the patch</td></tr><tr><td><code>0xD136</code></td><td>the operation code: high nibble what, low nibble on what</td></tr><tr><td><code>0xD300</code>–<code>0xD31x</code></td><td>the header of the game that was recognised</td></tr><tr><td><code>0xD31A</code>, <code>0xD31B</code></td><td>the stage and the lives the user asked for</td></tr><tr><td><code>0xD317</code></td><td>which cheats are pending</td></tr></table>
+<p>And one that does two jobs: <b><code>0xD12D</code> holds the PSG&#x27;s channel C volume and is also the low byte of the IY</b> used for inter-slot calls. It works because CALSLT only looks at IYh.</p>
+<h2 id="the-hidden-mark">The hidden mark</h2>
+<p>In the last 22 bytes, <code>0x7FEA</code>–<code>0x7FFF</code>: <b>RC-735</b> and 19 katakana bytes reading 10バイタノシムカートリッジ — &quot;the cartridge for ten times the fun&quot; — which was the slogan.</p>
+<p>The format was discovered by <b>Manuel Pazos</b> (<a href="https://twitter.com/ManuelPazosMSX">@ManuelPazosMSX</a>): the title reversed, its length, the catalogue number in BCD and a closing <code>0xAA</code>. As a bonus, this mark <b>confirms that <code>0xBA</code> is the ー lengthener</b>, which had been left open until now.</p>
+<p>Before the mark there are 272 filler bytes of <code>0xFF</code> (<code>0x7EDA</code>–<code>0x7FEA</code>): what was left over of the cartridge.</p>
+<footer><p><em>Konami's Game Master</em> was published by Konami in 1986; its catalogue number is RC-735 and it is 16 KB. It is not a game: it is a cheat cartridge that plugs in alongside another one and grants it lives or skips its stages. All rights in the cartridge and in the games it names remain with their holders. This is preservation, study and documentation work, and the cartridge image is not distributed.</p></footer></div>

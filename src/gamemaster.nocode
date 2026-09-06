@@ -1,0 +1,22 @@
+# Zonas que NO son codigo aunque el trazado pueda entrar en ellas.
+# Cada una con su razon.
+
+# LAS DOS TABLAS DE JUEGO. Filas de tres bytes -numero de catalogo en BCD y
+# rutina de 16 bits-, terminadas en 0xFF. Las recorre 0x5582. Al ser de tres
+# bytes no valen para !tabla, que solo entiende punteros pegados; sus destinos
+# van sembrados a mano en el .entries.
+0x5AD1 0x5B02   # la primera, 16 entradas, la usa 0x49A5
+0x5B02 0x5B42   # la segunda, 21 entradas, la usa 0x4926
+
+# LA TABLA DE FIRMAS. Filas de cuatro bytes: la suma de comprobacion de los
+# bytes 0x5000..0x50FF de la ROM del juego, y el puntero a los 19 bytes de
+# cabecera que ese juego no trae. Termina en la palabra 0000. La recorre
+# 0x5F0E. Los punteros apuntan a datos, no a codigo, asi que no hay nada que
+# sembrar: lo que hace falta es que el trazado no se meta aqui.
+0x5F3A 0x6034   # 62 entradas
+0x6034 0x626E   # los 22 bytes por defecto y las 29 cabeceras de 19
+
+# EL PARCHE DEL GANCHO. Cinco bytes que se copian ENCIMA del arranque del juego
+# ya copiado en RAM. Son codigo, pero no de este cartucho: se ejecutan dentro
+# del juego, y aqui no son mas que cinco bytes de dato.
+0x4CB9 0x4CBE

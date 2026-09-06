@@ -1,0 +1,1914 @@
+# Anotaciones de Konami's Game Master (Konami, 1986, MSX1, cartucho RC-735).
+#
+# Cada linea va anclada a una direccion, asi que los comentarios sobreviven a
+# un retrazado. Directivas: L=etiqueta, C=comentario de linea, B=cabecera de
+# bloque, D=rango de datos, F=anchura de las filas de un bloque de datos. Todo
+# sale de leer el codigo que lo usa. Sin acentos a proposito.
+#
+# QUE ES ESTO. No es un juego. Es el cartucho de trucos de Konami: se enchufa
+# en la ranura de al lado del juego y le da vidas infinitas, le salta de fase o
+# le congela el marcador. Es, que sepamos, el unico cartucho comercial de MSX
+# cuyo trabajo entero consiste en LEER Y MODIFICAR OTRO CARTUCHO.
+#
+# EL CARTUCHO. 16 KB en la pagina 1 (0x4000-0x7FFF). La cabecera AB declara
+# solo INIT (0x4010); STATEMENT, DEVICE y TEXT van a cero. SI lleva la marca
+# oculta de Konami, en los ultimos 22 bytes: RC-735 y, en katakana, 19 bytes
+# que dicen 10 バイ タノシム カートリッジ -"10baitanoshimu kaatorijji", el
+# cartucho para disfrutar diez veces mas-, que era su eslogan.
+#
+# EL PROBLEMA QUE TIENE QUE RESOLVER. El Game Master vive en la pagina 1. El
+# juego al que le hace trucos vive TAMBIEN en la pagina 1, en otra ranura. Los
+# dos no pueden estar puestos a la vez. Asi que todo el cartucho esta
+# construido alrededor de una sola maniobra: copiarse trozos de si mismo a la
+# RAM, conmutar la ranura desde alli, y volver.
+#
+#   - Seis bloques de codigo se copian a RAM y se ejecutan ALLI, no donde
+#     estan. Van declarados con !reubica en el .entries, cada uno con el LDIR
+#     que lo copia. Al leerlos, sus direcciones absolutas son las de destino.
+#   - Lo que esta en la ROM y hay que llamar con la otra ranura puesta se llama
+#     por CALSLT (0x001C) con la ranura en IY, o por la plantilla de RST 30h
+#     que 0x6AAA monta en 0xD33E.
+#   - Para leer un byte del cartucho vecino se usa RDSLT (0x000C). 0x4CA6 es
+#     el LDIR entre ranuras: copia BC bytes de la ranura (0xD12F) a la RAM.
+#
+# COMO SE COLA DENTRO DEL JUEGO. Esta es la idea central, y esta en 0x4C76.
+#
+#   1. Copia los primeros 256 bytes del INIT del juego a 0xD861, leyendolos de
+#      la otra ranura con RDSLT.
+#   2. Busca en esa copia la secuencia 9B FD, que es el operando de
+#      `ld (0xFD9B),hl` -la instruccion con la que el juego instala su rutina
+#      de interrupcion en el gancho H.KEYI de la BIOS.
+#   3. La sustituye por los cinco bytes de 0x4CB9: 30 D1 CD 14 D8. Con el
+#      opcode 22 que ya habia delante, la instruccion pasa de
+#          22 9B FD        ld (0xFD9B),hl
+#      a
+#          22 30 D1        ld (0xD130),hl   ; el gancho del juego, guardado
+#          CD 14 D8        call 0xD814      ; y el control, para el Game Master
+#   4. Y ejecuta la copia parcheada, no la original.
+#
+# O sea que no parchea el juego: parchea la COPIA EN RAM de su arranque, y con
+# eso se queda con el gancho de interrupcion. A partir de ahi se ejecuta una
+# vez por fotograma dentro del juego, y puede tocarle las variables.
+#
+# Funciona porque TODOS los cartuchos de Konami arrancan igual. Comprobado
+# sobre las 42 ROM de cartucho de la coleccion: las 40 de Konami llevan esa
+# instruccion en los 256 bytes de su INIT, y las dos unicas que no son Casio
+# World Open -que no es de Konami- y el propio Game Master.
+#
+# COMO SABE QUE JUEGO TIENE AL LADO. Por dos caminos, y el orden importa
+# (0x5E64):
+#
+#   1. LA SEGUNDA CABECERA. Lee dos bytes de 0x4010 del vecino y los compara
+#      con "AB" y con "CD". Si es "AB", se trae 19 bytes de 0x4012; si es
+#      "CD", 21, y los reparte por otro sitio. Esa es la segunda cabecera de
+#      Konami, y de las 42 ROM de la coleccion solo la llevan cinco: Soccer y
+#      Football con "AB" (RC-732), y Goonies (RC-734), Nemesis (RC-742) y
+#      F-1 Spirit (RC-752) con "CD".
+#   2. LA TABLA DE FIRMAS. Si no lleva ninguna de las dos -que es el caso de
+#      casi todo el catalogo-, 0x5EF5 SUMA los 256 bytes de 0x5000 a 0x50FF de
+#      la ROM del vecino, y busca esa suma de 16 bits en la tabla de 0x5F3A.
+#      Cada entrada son cuatro bytes: la suma y un puntero a los 19 bytes de
+#      cabecera que el juego no trae. 62 entradas y 29 cabeceras para 28
+#      juegos: la tabla lleva las compilaciones alternativas de cada uno, hasta
+#      cuatro, y Antarctic Adventure necesita dos cabeceras distintas.
+#
+# En los dos casos el resultado acaba en 0xD300 y siguientes, en el mismo
+# formato. 0xD300-0xD301 son las dos parejas BCD del numero de catalogo -07 00
+# es RC-700- y detras van los punteros a las variables del juego en su RAM.
+#
+# LA TABLA DE FIRMAS, COTEJADA. Cada una de las 62 entradas se ha comprobado
+# sumando de verdad los bytes 0x5000-0x50FF de las ROM de la coleccion. Las 30
+# que se pueden cotejar cuadran, y el orden de la tabla es correlativo por
+# numero de catalogo:
+#
+#   0x6047 RC-700 Athletic Land        0x6151 RC-715 Hyper Sports 1
+#   0x605A RC-701 Antarctic Adventure  0x6164 RC-716 Cabbage Patch Kids
+#   0x606D RC-701 (2a compilacion)     0x6177 RC-717 Hyper Sports 2
+#   0x6080 RC-702 Monkey Academy       0x618A RC-718 Hyper Rally
+#   0x6093 RC-703 Time Pilot           0x619D RC-720 Konami's Tennis
+#   0x60A6 RC-704 Frogger              0x61B0 RC-721 Sky Jaguar
+#   0x60B9 RC-705 Super Cobra          0x61C3 RC-723 Konami's Golf
+#   0x60CC RC-706 Konami's Billiards   0x61D6 RC-724 Konami's Baseball
+#   0x60DF RC-707 Konami's Mahjong     0x61E9 RC-725 Yie Ar Kung-Fu
+#   0x60F2 RC-710 Hyper Olympic 1      0x61FC RC-727 King's Valley
+#   0x6105 RC-711 Hyper Olympic 2      0x620F RC-728 Mopi Ranger
+#   0x6118 RC-712 Circus Charlie *     0x6222 RC-729 Pippols
+#   0x612B RC-713 Magical Tree *       0x6235 RC-730 Road Fighter
+#   0x613E RC-714 Comic Bakery *       0x6248 RC-731 Konami's Ping Pong
+#                                      0x625B RC-733 Hyper Sports 3
+#
+# Los tres con asterisco no se han podido cotejar aqui porque no tenemos su
+# ROM: el numero de catalogo sale de los propios bytes de la cabecera que el
+# cartucho guarda (07 12, 07 13, 07 14) y el titulo, del manual publicado en
+# msxblue.com/manual/gamemaster1_c.htm. Los otros 25 estan comprobados contra
+# la ROM, sumando de verdad sus bytes 0x5000-0x50FF.
+#
+# Que la tabla se salte el RC-719, el RC-722 y el RC-726 no es un despiste
+# nuestro: el manual tampoco los lista. Binario y manual coinciden en los
+# huecos.
+#
+# Antarctic Adventure sale con DOS cabeceras distintas, no una: la japonesa
+# primera por un lado y las otras tres compilaciones por otro, y se
+# diferencian en un byte (el cuarto: 00 contra 01).
+#
+# Un aviso sobre el cotejo: F-1 Spirit da la misma suma que Billiards (0x7894).
+# Es una colision de una suma de 16 bits sobre 256 bytes, no una entrada de la
+# tabla: F-1 Spirit es un MegaROM y lleva su propia cabecera "CD", asi que el
+# Game Master nunca llega a sumarle nada.
+#
+# LA SEGUNDA TABLA, la de 0x5AD1. Aparte de la de firmas hay otra, mas corta,
+# de entradas de tres bytes -numero de catalogo y rutina- terminada en 0xFF.
+# La recorre 0x5582 comparando contra (0xD301), o sea las dos cifras bajas del
+# RC que acaba de averiguar. Son DIECISEIS juegos, y no son los mismos que los
+# de la tabla de firmas: son los que necesitan un apano aparte.
+#
+#   00 RC-700 Athletic Land      16 RC-716 Cabbage Patch Kids
+#   02 RC-702 Monkey Academy     21 RC-721 Sky Jaguar
+#   03 RC-703 Time Pilot         25 RC-725 Yie Ar Kung-Fu
+#   04 RC-704 Frogger            27 RC-727 King's Valley
+#   05 RC-705 Super Cobra        28 RC-728 Mopi Ranger
+#   06 RC-706 Konami's Billiards 29 RC-729 Pippols
+#   12 RC-712 Circus Charlie     37 RC-737 Yie Ar Kung-Fu 2
+#   13 RC-713 Magical Tree
+#   14 RC-714 Comic Bakery
+#
+# Para dieciseis juegos solo hay CUATRO rutinas distintas: 0x5B52 la de doce de
+# ellos, 0x5B42 para Yie Ar Kung-Fu, 0x5B5A para Mopi Ranger y Yie Ar Kung-Fu 2
+# y 0x5B5F para Pippols.
+#
+# Yie Ar Kung-Fu 2 (RC-737) esta en ESTA tabla pero no en la de firmas, que es
+# lo que cabe esperar: lleva cabecera propia, asi que no hace falta darle una
+# postiza, pero si el apano.
+#
+# EL MENU. 0x422F lo monta y 0x428F reparte las seis opciones, que son las que
+# describe el manual: DISK SAVE, DISK LOAD, TAPE SAVE, TAPE LOAD, RANKING y
+# PRINTER. Lo que se graba son cuatro cosas, y sus nombres de seis letras estan
+# en 0x7028: GAMEDT, SCREEN, HISCOR y RANKDT, que en el manual son las
+# extensiones .Gxx, .Sxx, .Hxx y .Rxx.
+
+# ==========================================================================
+# EL ARRANQUE
+# ==========================================================================
+D 0x4000 0x4010 cabecera_cartucho  AB y el puntero INIT (0x4010); STATEMENT, DEVICE y TEXT a cero
+F 0x4000 2,w4
+
+B 0x4010 ARRANQUE. La BIOS entra aqui por la cabecera del cartucho.
+L 0x4010 INIT
+C 0x4017 borra los 8 KB de 0xC000 a 0xDFFF, que son la RAM de trabajo
+C 0x4023 en que ranura estoy yo: se guarda en 0xD12E
+C 0x402A la ranura de al lado: la mia mas 4 si estoy en una expandida, mas 1 si no
+C 0x4035 monta el cargador en 0xC000 y salta alli; vuelve con carry si no hay juego
+
+B 0x403D REGRESO DESDE EL JUEGO. Aqui no se llega por el flujo: se entra desde 0xC800, y a 0xC800 se llega por el gancho H.TIMI que 0x4253 dejo plantado.
+C 0x403E devuelve a su sitio los 4352 bytes de RAM que el juego habia machacado
+
+B 0x40A3 EN QUE RANURA ESTOY. El truco clasico del MSX: RSLREG, quedarse con los dos bits de la pagina 1, y mezclarles el bit 7 de EXPTBL y los de subranura de SLTTBL.
+L 0x40A3 mi_ranura
+
+B 0x40BC LEER DOS BYTES DEL CARTUCHO DE AL LADO. Deja el valor en DE y pone Z si los dos son cero. Con HL=0x4002 dice si hay cartucho; con HL=0x4010, si trae segunda cabecera.
+L 0x40BC lee_palabra_del_vecino
+
+C 0x4044 son los 0x1100 que se salvaron en 0xE280, que es donde este cartucho aparca su RAM mientras el juego corre
+C 0x404A la pila propia, en 0xDF80: la del juego ya no vale
+C 0x404D busca por las ranuras un cartucho que no sea este
+C 0x4053 hay juego: se le lee el puntero INIT de 0x4002
+C 0x405D y se guarda en 0xD132, que es de donde saldra la direccion a la que saltar
+C 0x4060 salva los 0x314 bytes de la zona de trabajo de la BIOS (0xF100) en 0xD500, porque el juego los va a machacar
+C 0x406B la maniobra: parchear el gancho de interrupcion del juego
+C 0x4074 e identificar que juego es
+C 0x4079 la linea 7 del teclado, bit 2: si esa tecla esta pulsada no se entra al juego, se queda en el menu
+C 0x4090 sin juego que tocar, el cartucho se queda para el solo
+C 0x40A0 y con juego, a 0xD83B: el bloque de 0x4CF1 ya copiado a la RAM
+
+C 0x40A6 RSLREG da los cuatro pares de bits; los de la pagina 1 son el segundo
+C 0x40AD EXPTBL, cuyo bit 7 dice si la ranura primaria esta expandida
+C 0x40B5 y tres mas alla esta SLTTBL, de donde salen los dos bits de subranura
+
+C 0x40BC la ranura del vecino, que 0x4032 dejo en 0xD12F
+C 0x40C0 dos veces: la primera deja el byte bajo en E y la segunda el alto en D
+C 0x40C7 RDSLT es la unica forma de leer una ranura que no esta puesta
+
+B 0x40D0 Copia el buscador de ranura a 0xDA00 y salta alli. Tiene que correr desde la RAM porque va a conmutar la pagina 1, que es donde vive este cartucho.
+C 0x40D6 0xBC bytes, que es justo lo que mide el bloque de 0x40DE
+
+C 0x40DE cuatro ranuras, y EXPTBL para saber cuales estan expandidas
+C 0x40E7 con el bit 7 puesto, la ranura esta expandida y hay que mirar sus cuatro subranuras
+C 0x40EC 0xDAB7 es 0x4195: ¿es esta mi propia ranura? Entonces se salta
+C 0x40F2 y si no, se mira si tiene un juego que valga
+C 0x40FD encontrado o no, hay que volver a meterse a uno mismo en la pagina 1
+C 0x4108 0xDA2F es 0x410D: la vuelta por las cuatro subranuras
+C 0x410D el bit 7 marca "expandida" y los bits 2 y 3, la subranura
+C 0x4110 las cuatro subranuras, de cuatro en cuatro
+
+B 0x4124 RECONOCER EL CARTUCHO DE LA OTRA RANURA. Corre en 0xDA46. Cuatro pruebas en cadena, y basta con que pase una: que tenga cabecera de cartucho, que instale el gancho de interrupcion como lo instala Konami, que traiga la segunda cabecera de 0x4010, o que su suma de comprobacion este en la tabla.
+C 0x4127 se mete la ranura candidata en la pagina 1
+C 0x412A ¿empieza por "AB"? Si no, ahi no hay cartucho
+C 0x4133 su INIT, y 256 bytes por delante
+C 0x4139 busca un 0x9B con cpir
+C 0x4142 y comprueba que detras va un 0xFD: juntos son el operando del `ld (0xFD9B),hl` con el que un juego de Konami instala su gancho H.KEYI. De las 40 ROM de Konami que hay a mano, 40 lo llevan
+C 0x4147 la SEGUNDA cabecera, la de 0x4010: "AB" son 19 bytes de punteros y "CD", 21
+C 0x4156 y si tampoco, el ultimo recurso: sumar los 256 bytes de 0x5000 a 0x50FF
+C 0x415E la suma es de 16 bits, con el acarreo a D
+C 0x4168 antes de mirar la tabla hay que volver a ponerse uno mismo, que la tabla esta AQUI
+C 0x4171 la tabla de firmas, 62 entradas de cuatro bytes
+C 0x417F DCOMPR: la suma contra la firma
+C 0x4182 y si no, cuatro bytes mas alla, a la siguiente
+C 0x418C ninguna prueba paso: no vale
+C 0x4190 vale: se guarda la ranura y se sale con carry
+
+# --------------------------------------------------------------------------
+# LOS BLOQUES QUE CORREN EN RAM. Sus direcciones absolutas son las de destino.
+# --------------------------------------------------------------------------
+B 0x40DE ESTO CORRE EN 0xDA00, NO AQUI. Busca por las ranuras un cartucho que no sea este. Un `jp 0xDAxx` de aqui dentro es un salto a este mismo bloque: restale 0x9922 para saber a que linea.
+B 0x41A8 ESTO CORRE EN 0xC000, NO AQUI. Lo copia y lo llama 0x419A. Restale 0x7E58 para saber a que linea salta.
+B 0x4264 ESTO CORRE EN 0xC800, NO AQUI. Once bytes: vuelve a meter este cartucho en la pagina 1 con ENASLT y salta a 0x403D. Es el camino de vuelta desde el juego.
+B 0x426F ESTO CORRE EN 0xFEDA, NO AQUI. Tres bytes: un `jp 0xC800` plantado en un gancho de la BIOS.
+
+B 0x422F ARRANCAR EL JUEGO. Antes de irse deja puesto el camino de vuelta: 0xC800 y el gancho.
+C 0x423B lee el INIT del vecino, que es a donde hay que saltar
+C 0x4241 IY = ranura e IX = direccion, que es lo que pide CALSLT
+C 0x4248 planta en 0xC800 el trozo que sabe volver
+C 0x4253 y en el gancho de la BIOS, un salto a el
+C 0x425E y arranca el juego en su ranura
+
+B 0x428F EL MENU PRINCIPAL. Seis opciones: DISK SAVE, DISK LOAD, TAPE SAVE, TAPE LOAD, RANKING MODE y END. La sexta es END y no PRINTER: lo dicen los rotulos de 0x4525, que es lo que se pinta, y el 0x00 con el que 0x429E la marca. "PRINTER" solo existe como encabezado, en los rotulos de 0x4636.
+C 0x4278 pinta el menu
+C 0x427B y sus seis sitios
+C 0x4284 la opcion elegida da el codigo de operacion
+C 0x428B que se guarda en 0xD136, la variable que manda en todo lo que viene detras
+C 0x428F y se salta a la rutina de esa opcion, con la tabla pegada detras
+
+B 0x4C3D DOS CIFRAS TECLEADAS A UN NUMERO. Las teclas llegan como caracteres, asi que hay que quitarles el 0x30 -eso es el `and 0x0F`- y juntar las dos.
+C 0x4C3D con menos de dos cifras no se hace nada
+C 0x4C43 la primera por DIEZ: por dos, por ocho y sumadas
+C 0x4C4D mas la segunda, y sale el numero
+B 0x4C64 LO MISMO PERO EN BCD. La diferencia esta en el multiplicador: aqui la primera cifra se corre cuatro bits -por dieciseis- en vez de multiplicarse por diez, que es justo lo que distingue el BCD del binario.
+C 0x4C6A cuatro veces por dos: al nibble alto
+C 0x4C73 y la segunda cifra en el bajo
+
+B 0x6B0D EL ERROR DE DISCO, CLASIFICADO. Con el codigo en C se decide de que grupo es: los dos primeros llevan mensaje propio, del 2 al 5 van a otra pantalla, y el resto comparten uno.
+C 0x6B17 el titulo, siempre el mismo
+C 0x6B23 se queda con los bits 1, 2 y 3 del codigo
+C 0x6B26 los dos primeros codigos
+C 0x6B2A y del segundo al quinto, otra pantalla
+
+C 0x687B el truco para intercambiar sin memoria de mas: uno se guarda en B mientras se escribe el otro
+C 0x6883 hasta acabar los 0x1100
+
+B 0x68DE UN BYTE BCD A DOS CARACTERES. Le pega un 0x30 a cada nibble, que es lo que convierte una cifra en su letra. Es lo que hace que los numeros del cartucho se puedan escribir en pantalla.
+L 0x68DE bcd_a_dos_letras
+C 0x68E5 el nibble alto, mas 0x30
+C 0x68EC y el bajo
+
+B 0x6374 GUARDARSE LA PANTALLA DEL JUEGO. Antes de pintar nada encima hay que llevarse a la RAM lo que habia: patrones, color, casillas y el primer atributo de sprite. Es la pareja de 0x63E9, que la devuelve. (0xD12A) marca que hay algo guardado, para no guardarlo dos veces.
+L 0x6374 salva_la_pantalla
+C 0x6378 si ya hay una guardada, no se toca
+C 0x637B y se marca
+C 0x6382 los patrones, 0x80 bytes por tercio
+C 0x638E el color, 0x158
+C 0x639D las 256 casillas
+C 0x63A9 y un byte de atributos: el que esconde los sprites
+C 0x63B2 y encima se deja un 0x55 de trama, que es el fondo del cartucho
+
+C 0x5A51 ocho caracteres de nombre
+C 0x5A6D ocho bytes mas alla va la puntuacion
+C 0x5A77 seis cifras de marcador
+
+C 0x6613 crea el fichero
+C 0x6619 y le mete la pantalla
+C 0x663A cerrado
+C 0x6640 y borrado el temporal
+
+C 0x705B se saca la pantalla de la VRAM en trozos de 0x800
+C 0x7068 TAPOON arranca el motor y escribe la cabecera
+C 0x7070 el tamano, byte bajo primero
+C 0x707F y el bloque
+C 0x7088 hasta 0x40, que por 0x800 son los 16 KB de VRAM
+
+C 0x7599 se le resta el desplazamiento
+C 0x759F si no se sale por arriba, ya esta
+C 0x75A3 y si se sale, se da la vuelta: ocho filas abajo
+C 0x75A7 y dieciseis columnas a la derecha
+
+C 0x634D el nibble alto
+C 0x6353 por dos
+C 0x6355 por ocho
+C 0x6357 y sumados: por diez
+C 0x635C mas el nibble bajo
+
+C 0x7854 B a cero: cada fila se copia con la C que llego, no con BC entero
+C 0x7858 una fila a la VRAM
+C 0x785C y 0x20 mas alla: la siguiente fila de la pantalla
+C 0x7863 mientras el origen avanza lo ancho que sea el bloque
+C 0x7865 tantas filas como diga B
+
+C 0x62D4 el bloque, a la VRAM
+C 0x62D8 y 0x800 mas: el tercio siguiente
+C 0x62E0 tres veces
+
+C 0x6DE0 el caracter, copiado
+C 0x6DE3 ¿se paso del buffer?
+C 0x6DE9 y se compara con el que se esperaba
+
+C 0x7613 cuatro desplazamientos de A
+C 0x7617 encadenados con H, que es lo que hace que la division sea de dieciseis bits
+C 0x7620 y los dos bits que quedan dicen el tercio
+
+C 0x4CA8 la ranura del vecino
+C 0x4CB0 el byte leido, a la RAM
+C 0x4CB3 y uno menos
+C 0x4CB6 hasta acabar
+
+C 0x5C01 la pareja de bytes
+C 0x5C04 por tres: tres bytes por prueba
+C 0x5C0E dos bytes, copiados
+
+C 0x4C51 el resultado, a cero por si acaso
+C 0x4C56 sin cifras se sale con Z
+C 0x4C5A una sola cifra
+
+C 0x5582 el numero de catalogo de esta fila
+C 0x5583 0xFF cierra la tabla
+C 0x5586 el juego que se averiguo
+C 0x558A si cuadra, se sale con Z
+C 0x558B y si no, tres bytes mas alla
+
+C 0x6861 los 0x1100 bytes que estaban aparcados
+C 0x686C y se deshace el intercambio
+
+C 0x5623 los tres bytes de un marcador
+C 0x5627 el ultimo
+
+C 0x6987 el bloque de control
+C 0x698B la funcion 0x27 del BDOS
+C 0x6990 y el codigo de error 3
+C 0x6997 el bloque de control
+C 0x699B la funcion 0x26
+C 0x69A0 y el codigo 4
+
+C 0x740F se salvan todos los registros: la impresora es lenta y por medio pasa de todo
+C 0x741A si no esta lista, se vuelve a mirar
+
+C 0x6970 y el codigo de error 1, por si falla
+C 0x6980 aqui el codigo es el 2
+C 0x69D8 juntos en HL
+
+C 0x68F3 los 0x18 bytes que van detras del nombre
+C 0x68F8 y a cero
+
+C 0x6E1C ¿se paso del buffer?
+C 0x6E22 y si el caracter cuadra, se sigue
+C 0x6E39 con 0x7F no cabe mas
+
+C 0x6FCA una espera a base de dar vueltas: la cinta necesita su tiempo entre bloques
+C 0x6FCE y B veces
+
+C 0x714B el 0x40, que aqui es el hueco
+C 0x714D trece bytes: "SKIP FILE" y su relleno
+
+C 0x7223 pinta la pantalla de elegir impresora
+C 0x7226 sus tres sitios
+C 0x722E y a la que se elija
+
+B 0x7267 BORRAR LA COPIA DE LA PANTALLA. 0x3BF bytes a cero en 0xD9B1, que es donde se monta lo que va a la impresora.
+C 0x7270 a cero
+C 0x7272 los 0x3BF que caben
+
+B 0x740D SACAR UN BYTE A LA IMPRESORA. Antes de cada byte se mira el teclado -para poder abortar- y se comprueba con LPTSTT que la impresora este lista.
+L 0x740D a_la_impresora
+C 0x7414 el teclado, por si se aborta
+C 0x7417 y LPTSTT, que dice si la impresora esta lista
+
+C 0x7559 hasta acabar la franja
+
+B 0x75AB EL ANCHO DEL MODO DE PANTALLA. La BIOS guarda el modo en 0xF3E6; el 4 va de una forma y todo lo demas, de otra.
+C 0x75AB el modo, que la BIOS deja en 0xF3E6
+C 0x75B0 el 4 tiene su propio ancho
+
+C 0x762E la orden de la impresora
+C 0x7634 con el codigo 0x71 va una, y si no, otra
+C 0x763E 0xC0 filas de pantalla
+
+C 0x76A0 solo con el codigo 0x72 se saca este byte
+
+C 0x770D entre cuatro: cada golpe del cabezal cubre cuatro columnas
+
+C 0x41E3 0xC02F es 0x4187: ¿es la mia?
+C 0x41E9 y si no, se mira si tiene juego
+
+C 0x4A00 sin juego no hay ranking que ver
+C 0x4A06 ni sin puntero de marcador en la cabecera
+C 0x4A11 los rotulos del modo ranking
+
+C 0x4E21 hacia atras: se copia del byte alto al bajo
+C 0x4E24 tres bytes
+
+C 0x4EDF el modo 2: contar
+C 0x4EE5 y los dos contadores, a cero
+
+C 0x4F8E los tres rotulos del menu de arranque
+C 0x4F91 de tres filas por cuatro
+C 0x4F9A y a la rutina que se elija
+
+B 0x5239 EL OTRO SELECTOR DE MENU. Es el del menu de arranque: en vez de una lista de sitios, el rotulo de cada linea se pinta como un rectangulo. Por eso lleva su propio bucle en vez de usar el de 0x6581.
+C 0x523A el tope
+C 0x523D el tamano del rectangulo
+C 0x5241 la tabla de rotulos
+C 0x5244 y donde va el primero
+
+C 0x5262 flecha arriba
+C 0x5268 y flecha abajo
+
+C 0x572D tres bytes de marcador
+
+C 0x57BA tres bytes de puntuacion
+
+C 0x5B42 el apano de doce juegos: 0xFF en 0xE052
+C 0x5B4A y el numero pedido, topado en diez
+
+C 0x6320 out (c),a: el byte repetido, directo al puerto del VDP
+C 0x6323 y el push/pop de espera, aqui con IX
+
+C 0x6368 la direccion de retorno ES la tabla
+C 0x6369 por dos, que son punteros
+C 0x6373 y se salta
+
+C 0x64CA las cifras
+C 0x64D4 y las mayusculas
+
+C 0x64DC con 0xFF en 0xD167 no se admite mas
+
+B 0x68F0 LIMPIAR EL RESTO DEL BLOQUE DE CONTROL. Los 0x18 bytes que van detras del nombre, a cero: el BDOS los quiere asi.
+
+C 0x69C7 el byte bajo
+C 0x69CC y el alto
+
+C 0x6B74 el aviso, una fila mas abajo
+C 0x6B7C el codigo 5
+
+C 0x6D02 una fila mas abajo
+C 0x6D07 hasta acabar la lista
+
+C 0x6E0C con 0x7F ya no cabe mas
+C 0x6E11 y uno mas de cuenta
+
+B 0x6957 BORRAR UN FICHERO. Funcion 0x0F del BDOS. Los tres codigos de error que salen de aqui -0, 1 y 2- son los que 0x6A19 usa para elegir mensaje.
+C 0x695B la funcion 0x0F
+C 0x6962 con 0xFF, error
+B 0x6967 CREARLO. Funcion 0x16, y el codigo de error es el 1.
+B 0x6977 Y CERRARLO. Funcion 0x10, con el codigo 2.
+
+B 0x69CF LEER DOS BYTES DEL FICHERO, uno detras de otro, y juntarlos en HL: es como se lee el tamano de lo guardado.
+
+C 0x6BE8 monta el bloque de control
+C 0x6BEB busca el primer fichero
+C 0x6BEE si no hay ninguno, "NO FILE"
+C 0x6BF1 pide el nombre
+
+C 0x6CC1 el sitio de este nombre
+C 0x6CCB tres lineas de la lista a la vez
+
+C 0x6E2C se apunta la marca
+C 0x6E2F y donde se quedo
+
+C 0x6E4F el ultimo caracter
+C 0x6E56 y uno mas de cuenta
+
+C 0x6E95 CARGAR EL RANKING DE CINTA
+C 0x6EFD GUARDAR LA PANTALLA EN CINTA
+C 0x6F11 y guardar el ranking
+C 0x6F25 y los datos del juego
+
+B 0x7018 EL NOMBRE DEL FICHERO DE CINTA. Seis caracteres, y detras el numero de catalogo del juego pasado a letras: asi la cinta de un juego no se confunde con la de otro.
+C 0x701B seis caracteres
+C 0x7024 y el numero del juego, en letras
+
+C 0x720E IMPRIMIR: codigo 0x70
+C 0x721C y si falla, se vuelve a preguntar
+
+C 0x746B saca los bytes uno a uno a la impresora
+
+C 0x755E se compara con los colores apuntados
+C 0x7562 por los dos lados
+
+C 0x760B el nibble ALTO del byte de color es la tinta
+
+B 0x76B4 MANDAR UNA ORDEN A LA IMPRESORA. Saca bytes hasta el 0xFF, que es lo que cierra cada secuencia de escape de 0x76BE.
+C 0x76B5 0xFF cierra la orden
+
+C 0x40F9 la ranura siguiente
+C 0x4114 0xDAB7 es 0x4195: ¿es la mia?
+C 0x411F cuatro mas: la subranura siguiente
+C 0x41C3 la ranura siguiente
+
+C 0x6D6B "@@END@@": no hay mas ficheros
+C 0x6D71 y se le devuelve el sitio al cartucho
+
+B 0x6E43 ¿SE HA PASADO DEL BUFFER? Resta 0xD002 a la posicion: es el tope de la zona donde se van montando los nombres.
+C 0x6E49 el tope, 0xD002
+
+C 0x6EA9 GUARDAR EL RANKING EN CINTA
+C 0x6EAD la cabecera
+C 0x6EB3 se recogen los datos
+C 0x6EC0 y esta guarda los datos del juego
+
+C 0x6FD4 el nombre del fichero
+C 0x6FE6 diez bytes 0x0B de cabecera, que es lo que el MSX espera al principio de un fichero de cinta
+
+B 0x751A EL PUNTO, EN TRES PASOS. Primero mira los colores de la franja, luego lee el punto del dibujo, y por ultimo decide si contrasta. Cualquiera de los tres puede cortar.
+C 0x751D si la franja no tiene colores apuntados, no hay punto
+
+C 0x445E los datos del juego, si los trae
+C 0x446F y el ranking, si lo hay
+C 0x4762 LOAD SCREEN: sus tres lineas
+C 0x4820 EL MODO PANTALLA: sus tres lineas
+
+C 0x4FE9 el contador de congelado, a cero
+C 0x4FEC y el interruptor general
+C 0x4FF3 las banderas de truco, borradas
+C 0x4FF6 y el ranking
+
+C 0x5044 cuatro columnas
+C 0x504E dieciseis filas
+
+C 0x50B3 los patrones, a la VRAM 0x2180 por los tres tercios
+C 0x50BE y un relleno de 0xF0
+C 0x50C7 el color, a la VRAM 0x0000
+
+B 0x5622 BORRAR UN MARCADOR. Tres bytes a cero, que es lo que ocupa una puntuacion.
+L 0x5622 borra_el_marcador
+
+C 0x56F5 el marcador del jugador 1
+C 0x56FD si no hay partida, no se apunta nada
+C 0x5701 y el del 2
+
+C 0x5731 se comparan del byte mas alto al mas bajo
+C 0x5738 tres bytes
+C 0x573E entra en la tabla: se hace hueco
+C 0x5741 y se guardan la puntuacion y el nombre
+
+B 0x575C CORRER LA TABLA UNA LINEA HACIA ABAJO. Dos veces: la de puntuaciones y la de nombres, cada una con su base y su paso.
+C 0x575C las puntuaciones
+C 0x5769 y los nombres
+
+C 0x5B6C el numero de fases lo dice la propia cabecera del juego, en (0xD313)
+C 0x5B73 y se divide por el
+
+C 0x64E7 las minusculas
+C 0x64EF menos 0x20: pasadas a mayusculas, que es lo unico que tiene la fuente
+
+C 0x65FA con juego al lado el cursor va a un sitio, y sin el, a otro
+
+C 0x6692 GUARDAR LOS DATOS DEL JUEGO
+C 0x66FC CARGAR EL RANKING
+C 0x6712 y cargar los datos del juego
+
+C 0x7250 devuelve la pantalla del cartucho
+C 0x7253 se copia la pantalla a la RAM
+C 0x725F con el codigo 0x70 se imprime el ranking
+C 0x7264 y si no, la pantalla
+
+C 0x7490 mira que casilla es
+C 0x7493 las 0xD2 y 0xD1 tienen trato aparte
+C 0x749E dieciseis bits por casilla
+
+B 0x74CD DONDE ESTA EL ATRIBUTO DE UN SPRITE. Por cuatro -que es lo que ocupa cada atributo- mas 0x3B00, que es donde este cartucho pone la tabla.
+C 0x74D1 por cuatro: fila, columna, patron y color
+C 0x74D3 y la base de los atributos
+
+C 0x76DE por dos: son palabras
+C 0x76E2 y salen los dos bytes de la trama
+
+C 0x4202 busca una "D" con cpir
+C 0x420E y detras tienen que ir las nueve letras de "isk BASIC"
+C 0x4211 se comparan una a una
+C 0x421B si falla, se sigue buscando otra "D"
+C 0x421E encontrada: se apunta y se sale con carry
+
+C 0x43A9 solo si hay ranking
+C 0x4408 el dato del juego, si lo trae
+C 0x441C y el ranking, si lo hay
+C 0x4AED CLEAR RANKING de cinta: codigo 0x43
+
+C 0x5291 el contador de vueltas, que hace que el adorno del menu alterne
+C 0x5299 la linea de ahora, mas o menos uno
+C 0x529A si se pasa por arriba, a la ultima
+
+C 0x570D busca el puesto que le toca a esta puntuacion
+C 0x5713 nueve bytes por puesto
+C 0x571C encontrado: se calcula cuantos hay que correr hacia abajo
+
+C 0x57E0 los ocho caracteres del nombre
+
+C 0x5A2C el 0x3A marca el puesto que se acaba de hacer
+C 0x5A34 y ese sale con un "1" delante
+
+C 0x6315 out (c),a: los bytes van DIRECTOS al puerto del VDP, sin pasar por la BIOS. Por eso este descompresor es tan rapido
+C 0x6318 el push/pop no hace nada: es la espera que el VDP necesita entre byte y byte
+
+C 0x648C lo que hay escrito
+C 0x6496 el 0x3C es el hueco: si lo que se borra era un hueco, se apunta
+C 0x64A0 y el cursor retrocede
+
+C 0x6679 GUARDAR EL RANKING
+C 0x6686 se recogen los datos
+C 0x6689 y se escriben
+C 0x66E3 CARGAR LA PANTALLA, 0x1100 bytes
+
+B 0x694A EL TAMANO DEL FICHERO. Lo escribe en el byte 0x21 del bloque de control, que es donde el BDOS lo espera.
+C 0x6952 el desplazamiento 0x21 dentro del bloque de control
+
+B 0x6BCC PEDIR UN NOMBRE DE FICHERO. Como 0x4B04, pone el tope a 0x80 para que el cursor recorra la linea entera.
+C 0x6BD6 donde va el cursor
+C 0x6BDE y el tope, de linea y no de menu
+
+B 0x77C9 DONDE EMPIEZA EL DIBUJO DE UNA CASILLA EN LA ROM DE LA BIOS. La casilla por ocho, mas la direccion que la BIOS guarda en 0x0004: la tabla de caracteres. Asi el volcado a la impresora puede sacar las letras del sistema.
+C 0x77CC por ocho
+C 0x77D1 y la tabla de caracteres, que la BIOS deja apuntada en 0x0004
+
+C 0x4393 solo si el juego trae puntero en (0xD30C)
+C 0x439E si el fichero no aparece, se vuelve a preguntar
+C 0x43A3 y se carga
+C 0x447F RANKING MODE: sin ranking no hay nada que ver
+C 0x448C las cuatro lineas de su menu
+C 0x4715 SELF MODE, el menu de comprobaciones
+C 0x471E sus rotulos
+C 0x4727 tres lineas
+
+C 0x4F69 espera antes de arrancar
+C 0x4F80 limpia la pantalla
+C 0x4F86 el fondo del menu
+C 0x4F89 y encima, la pantalla de titulo
+
+C 0x5864 subir en la lista de letras
+C 0x5868 una menos
+C 0x586F 0xFFE0 es "una fila para arriba"
+
+C 0x5901 mientras salgan ceros, no se pintan
+C 0x590A salvo el ultimo, que si
+
+C 0x5A3C el 0x3A separa el puesto del nombre
+C 0x5A45 ocho caracteres de nombre
+C 0x5A48 el 0x3C es el hueco: los nombres cortos van rellenos con el
+
+C 0x6305 los siete bits bajos son la cuenta
+C 0x630A cuenta cero: o se acabo el bloque, o viene otro destino detras
+C 0x6310 comparar el byte entero con la cuenta dice si el bit 7 estaba puesto: si son iguales, no lo estaba
+
+C 0x6741 los datos del juego, 0x2000 mas abajo de donde dice su cabecera
+C 0x674D el buffer, al BDOS
+C 0x6753 y se leen
+C 0x6772 lo mismo para escribir
+
+C 0x6AD0 se salvan los dos indices
+C 0x6AD4 RST 30h es la llamada entre ranuras de la BIOS: se come los tres bytes de detras
+C 0x6AD5 y esos tres ceros son justo lo que 0x6AC3 rellena con la ranura y la direccion
+
+C 0x6C73 subir en la lista de ficheros
+C 0x6C7E 0xFFE0: una fila para arriba
+
+C 0x6CE9 segun el modo, se pinta un separador
+C 0x6CF1 el 0x3C, que es el punto del nombre
+
+B 0x6D9C EL SITIO DE UN NOMBRE EN LA LISTA. Ocho bytes por fichero, u once cuando ademas se guarda la extension: el `ld a,(0D129h)` de arriba es el que decide.
+C 0x6DA8 por ocho
+C 0x6DAB o por once, segun el modo
+
+C 0x6F59 el titulo del error
+C 0x6F61 y debajo, "HIT RETURN KEY"
+C 0x6F6A a esperar tecla
+
+B 0x74D9 DONDE ESTA EL DIBUJO DE UNA CASILLA. La casilla por ocho, redondeando a cuatro, mas 0x1800: la base de la tabla de patrones que este cartucho declara.
+C 0x74DA redondea a cuatro
+C 0x74DF por ocho: lo que ocupa cada dibujo
+C 0x74E2 y la base de los patrones
+
+C 0x41B0 la entrada de EXPTBL de esta ranura
+C 0x41B1 con el bit 7 puesto, esta expandida
+C 0x41B6 0xC02F es 0x41D7: ¿es la mia?
+C 0x41BC y si no, se mira si tiene juego
+
+C 0x4616 la tabla de rotulos de operacion
+C 0x461C el nibble ALTO de (0xD136) dice de que va la operacion
+C 0x4622 menos uno, porque la tabla empieza en el 1
+
+B 0x556F RECORRER UNA TABLA DE JUEGO. Filas de tres bytes -numero de catalogo y rutina- hasta el 0xFF. Sirve para las dos tablas, la de apanos y la de trucos.
+C 0x5570 0xFF cierra la tabla: el juego no esta
+C 0x5572 el numero que se averiguo
+C 0x5579 no es: tres bytes mas alla
+
+C 0x55FB borra el recuadro
+C 0x5605 "OK / RETRY"
+C 0x560E dos lineas
+C 0x5613 y a la que se elija
+
+C 0x5793 lddr, de atras adelante: al mover una fila hacia abajo, los dos trozos se pisan
+
+B 0x5950 EL SITIO DE UN NOMBRE EN LA TABLA. Nueve bytes por puesto, por tres y otra vez por tres, mas la base 0xD477.
+L 0x5950 sitio_del_nombre
+C 0x5952 por tres
+C 0x5955 y por tres otra vez: nueve
+C 0x595E EL SITIO DE UNA PUNTUACION, la misma cuenta con otra base
+
+C 0x6AF7 devuelve la RAM del cartucho
+C 0x6AFB el aviso de error
+C 0x6B04 vuelve a pedir el nombre
+C 0x6B07 y otra vez sitio al disco
+
+C 0x6DFF el bit 7 marca el final de la cadena
+C 0x6E03 y se apunta donde se quedo
+
+C 0x712D con C a cero no hubo diferencias: la carga fue bien
+C 0x7133 segun el modo
+C 0x713D se devuelve la pantalla del cartucho
+
+C 0x72A0 limpia
+C 0x72A6 pinta el marco
+C 0x72AB segun el codigo, una pantalla u otra
+C 0x72B8 y se vacia el teclado
+
+C 0x7528 EL COLOR DE UNA FRANJA: cuantos distintos se apuntaron y cuales
+C 0x7530 sin ninguno apuntado, nada que imprimir
+
+C 0x7642 la fila de la que se parte
+C 0x7647 IX apunta a los dos bytes que se van montando
+C 0x764C los dos, a cero
+C 0x7652 cuatro filas de tres
+
+C 0x771E la fila, igual que en la otra
+C 0x7723 los mismos dos bytes de trabajo
+C 0x772E y el mismo cuatro por tres
+
+B 0x652B EMPEZAR A TECLEAR DE CERO. Borra los 32 bytes del buffer, pinta el cursor y vacia el teclado, que si no se cuela la tecla con la que se llego aqui.
+C 0x6531 los 32 bytes del buffer, a cero
+C 0x653B vacia el buffer del teclado
+C 0x653F y los tres contadores de escritura
+
+B 0x6ADD LO QUE SE HACE DESPUES DE UN ERROR. Devuelve la RAM del cartucho, saca el aviso, y si hay que reintentar vuelve a pedirle sitio al disco.
+C 0x6ADE primero, recuperar la RAM propia
+C 0x6AE5 el aviso, con su mensaje
+C 0x6AF0 y si se reintenta, otra vez sitio al disco
+
+B 0x467C UN ROTULO DE UNA LISTA, EN SU SITIO. Suma el desplazamiento a la esquina que hay en (0xD16C) y saca de la tabla el rotulo numero A.
+C 0x467D la esquina de la pantalla
+C 0x4682 por dos: son punteros
+C 0x468A y a pintarlo
+
+C 0x574B tres bytes por marcador
+C 0x574F hasta acabar los puestos
+C 0x5751 y se guardan la puntuacion y el nombre
+
+C 0x59AC 0xFF cierra el bloque
+C 0x59AE 0xFE quiere decir que hay otro trozo detras
+C 0x59B2 y cualquier otro byte es un caracter, que aqui va a la RAM y no a la VRAM
+
+C 0x6340 la cifra de arriba
+C 0x6343 el `daa` detras del `adc` es lo que arregla el acarreo de nibble: sin el, el resultado no seria BCD
+C 0x6349 dieciseis vueltas, una por bit
+
+C 0x6510 donde va la letra
+C 0x6514 se escribe
+C 0x6518 y el cursor avanza
+C 0x6521 ademas se guarda en 0xD141, que es el buffer de lo tecleado
+
+C 0x69B3 el buffer, que aqui es la propia pila
+C 0x69BC y la operacion que toque, leer o escribir
+
+B 0x6D17 EL BLOQUE DE CONTROL PARA BUSCAR. Lo pone a cero y luego llena de 0x3F -la interrogacion- los once del nombre: asi la busqueda vale para cualquier fichero.
+C 0x6D1D los 0x24 bytes, a cero
+C 0x6D2A interrogaciones: el comodin que vale por cualquier caracter
+C 0x6D2C once, que son ocho de nombre y tres de extension
+
+B 0x6D34 BUSCAR EL PRIMER FICHERO. Funcion 0x11 del BDOS. Devuelve 0xFF cuando no hay ninguno.
+C 0x6D3E el buffer de resultados
+C 0x6D46 la funcion 0x11, "buscar primero"
+C 0x6D4B y con 0xFF no hay nada
+
+C 0x6E63 cierra la cadena con un cero
+C 0x6E72 y en 0xC000 se deja cuanto se leyo
+
+C 0x6F3E STMOTR con 0xFF para el motor del cassette
+C 0x6F4C "TAPE IO ERROR"
+C 0x6F51 o "SUM CHECK ERROR", segun el que sea
+
+B 0x74A0 APUNTAR UN COLOR QUE SE HA VISTO. Guarda hasta cuatro colores distintos por franja, que es lo que la impresora puede distinguir.
+C 0x74A1 cuatro como mucho
+C 0x74AC y se apunta el nuevo
+
+B 0x6C55 MOVER EL CURSOR POR LA LISTA DE FICHEROS. La misma cuenta que 0x5849, con DCOMPR para no pasarse del ultimo.
+C 0x6C55 borra el cursor
+C 0x6C67 DCOMPR contra el tope
+C 0x6C6B y solo si cabe, se mueve
+
+B 0x6D4E RECORRER EL DIRECTORIO DEL DISCO. Funcion 0x12 del BDOS -buscar siguiente-, hasta veinte ficheros o hasta que no queden.
+C 0x6D51 uno mas
+C 0x6D58 veinte como mucho: es lo que cabe en la pantalla
+C 0x6D5F la funcion 0x12, "buscar siguiente"
+C 0x6D64 y con 0xFF ya no quedan
+
+B 0x6E76 CARGAR DE CINTA. Se guarda la pila propia antes de nada, porque la BIOS de cinta usa la suya.
+C 0x6E7B la pila, aparcada
+C 0x6E7E la cabecera del fichero
+C 0x6E8E y se recupera al acabar
+
+B 0x70DD ESPERAR LA CABECERA DE LA CINTA. Los ficheros de cinta del MSX empiezan por diez bytes 0x0B; hasta que no llegan los diez seguidos, no hay fichero.
+C 0x70DE un byte de la cinta
+C 0x70E2 tiene que ser 0x0B
+C 0x70E6 y diez seguidos
+C 0x70F1 seis bytes de nombre, u ocho segun el modo
+
+B 0x75F6 EL COLOR DE UN PUNTO. Saca el bit que toca del byte del dibujo y, segun salga uno o cero, devuelve la tinta o el fondo de esa casilla.
+C 0x75F6 se desplaza hasta el bit que toca
+C 0x75FF y se lee el byte de color
+C 0x7607 el nibble bajo es el fondo; el alto, la tinta
+
+C 0x442C CARGAR DE CINTA: el menu de cuatro
+C 0x4442 con el codigo 4 en el nibble alto
+
+B 0x530D LA PANTALLA DEL MODO RANKING. Descomprime su fondo y monta a mano la rejilla de la tabla: seis columnas de 21 casillas.
+C 0x5316 el fondo, comprimido
+C 0x5320 borra la zona de la tabla
+C 0x5328 seis columnas
+C 0x532D de 21 casillas cada una
+
+B 0x5782 EL SITIO EN LAS DOS TABLAS A LA VEZ. Corre IX por la de nombres e IY por la de puntuaciones, cada una con su paso.
+C 0x5785 IX, los nombres
+C 0x5787 IY, las puntuaciones
+C 0x578A por tres
+C 0x5791 y por tres otra vez si el dato lo pide
+
+C 0x5F12 el siguiente par de la tabla de firmas
+C 0x5F1A un cero cierra la tabla: se acabo sin encontrarlo
+
+B 0x62E6 DESCOMPRIMIR A LOS TRES TERCIOS. Igual que 0x62D0 pero con el descompresor: el MISMO bloque se suelta tres veces, sumando 0x800. Los tres tercios de SCREEN 2 quedan identicos, que es como Konami monta casi todas sus pantallas.
+L 0x62E6 descomprime_tres_tercios
+C 0x62E9 la puerta del descompresor a la que el destino le llega en DE
+C 0x62ED y 0x800 mas para el tercio siguiente
+
+B 0x64AE EL PUNTO Y LA MARCA DE FINAL. Al teclear, el 0x2E -el punto- se trata aparte: solo vale si lo anterior era el separador, y se convierte en la casilla 0x3C.
+C 0x64AE el punto
+C 0x64B5 solo despues del separador
+C 0x64BD la casilla 0x3C es como se dibuja
+C 0x64C3 y no se admiten dos seguidos
+
+B 0x74BC DONDE EMPIEZA UNA FILA EN LA COPIA DE LA PANTALLA. Multiplica por cinco -por cuatro mas uno- y suma 0xD9B1, que es donde vive la copia.
+C 0x74C3 por cuatro
+C 0x74C5 mas uno: por cinco
+C 0x74C6 y la base de la copia
+
+C 0x47FD IMPRIMIR LA PANTALLA CARGADA: codigo 0x41
+C 0x480B la carga de cinta
+C 0x4813 marca que hay pantalla
+C 0x4AC7 CLEAR RANKING DATA: codigo 0x23
+C 0x4AD5 elige el fichero
+C 0x4AE4 y lo carga
+
+B 0x4C29 RECOGER UN NUMERO TECLEADO. Con una sola cifra se toma tal cual; con dos, se juntan. Devuelve Z si no se tecleo nada, que es como se cancela.
+C 0x4C2A el resultado, a cero por si acaso
+C 0x4C2F sin cifras, se sale con Z: el usuario ha cancelado
+C 0x4C33 una sola cifra
+C 0x4C50 LO MISMO EN BCD, para los juegos que cuentan asi
+
+C 0x526D no hay tecla: se cuenta un cuadro mas
+C 0x5277 y cada 0x8000 vueltas...
+C 0x527C ...se cambia la casilla del cursor entre 0xAC y 0xF5. Eso es el parpadeo
+
+B 0x5773 EL SITIO DE UNA LINEA DE LA TABLA. Multiplica por tres y, si hace falta, otra vez por tres: nueve. Es la misma cuenta que 0x57C2, escrita aparte.
+C 0x5779 por tres
+C 0x5780 y por tres otra vez, cuando el dato lo pide
+
+B 0x5849 ELEGIR LETRA CON LAS FLECHAS. Mueve el cursor y comprueba con DCOMPR que no se pase del final de la linea.
+C 0x5849 borra el cursor de donde estaba
+C 0x5853 cuanto se ha avanzado
+C 0x585B DCOMPR contra el tope
+C 0x585F y solo si cabe, se mueve
+
+B 0x5A0C LA TABLA DE RECORDS PARA IMPRIMIR. Lo mismo que 0x587A pero en la RAM y con DIEZ puestos en vez de cinco: en papel caben mas.
+C 0x5A24 el numero del puesto
+C 0x5A27 diez puestos, el doble que en pantalla
+
+C 0x629C el byte leido
+C 0x629D con 0xFF se acabo el bloque
+C 0x629F y con 0xFE, hay otro trozo detras
+C 0x62A2 la mascara, que es lo que distingue las dos puertas de esta rutina
+
+B 0x5342 LA BARRA DE PROGRESO. Mientras se guarda o se carga, va pintando casillas 0xF0 de veintiuna en veintiuna. Es lo unico que se mueve en pantalla durante una operacion de disco.
+C 0x5342 veintiuno por vuelta
+C 0x5348 por ocho, que es lo que ocupa cada fila
+C 0x534B la base en la VRAM
+C 0x5353 veintiuna casillas
+C 0x5358 y la casilla llena
+C 0x535D de ocho en ocho por la tabla
+C 0x5364 el contador da la vuelta cada ocho
+C 0x536A y entonces sube la fila
+C 0x536C con seis filas se acabo la barra
+
+B 0x57A1 GUARDAR UNA PUNTUACION EN LA TABLA. Tres bytes por puesto, asi que el indice se multiplica por tres.
+C 0x57A6 por tres: tres bytes por marcador
+C 0x57B2 el 0x32 es el "2": el segundo jugador tiene su propio sitio
+
+B 0x587A PINTAR LA TABLA DE RECORDS. Cinco puestos, cada uno con su numero, su nombre y su puntuacion. El numero sale de sumarle 0x31 al indice, o sea el "1" en ASCII.
+C 0x587D donde estan los nombres
+C 0x5886 y donde las puntuaciones
+C 0x5893 mas 0x31: el "1", el "2"... el numero del puesto
+C 0x5896 cinco puestos
+
+B 0x776F LEER UN PUNTO DE LA COPIA EN RAM. La hermana de 0x756A, pero mirando la copia de la pantalla que hay en 0xD9B1 en vez de la VRAM.
+C 0x7772 localiza la casilla
+C 0x7776 y de ahi, su dibujo
+C 0x777E la fila dentro de la casilla
+C 0x7787 y la columna, para saber que bit
+C 0x778C se saca desplazando
+
+B 0x664C GUARDAR EL RANKING EN DISCO. La unica que le pone al nombre la extension VRM a mano, porque el ranking no es un dato del juego sino del cartucho.
+C 0x6656 el bloque de control
+C 0x665F y la extension VRM
+
+B 0x6DC0 COMPARAR NOMBRES DE FICHERO CON COMODINES. Recorre el nombre pedido y el del directorio a la vez; el asterisco vale por lo que queda y la interrogacion por un caracter.
+C 0x6DC2 la marca de "sigue comparando"
+C 0x6DCF mira si el caracter es un comodin
+C 0x6DD6 y si no, tienen que ser iguales
+
+B 0x70FB LEER Y COMPARAR DE LA CINTA. Lee B bytes y los va comparando con lo que se esperaba; a la primera diferencia deja C a 0xFF y sigue leyendo, porque el bloque hay que consumirlo entero.
+C 0x70FE un byte de la cinta
+C 0x7101 cortada, error de entrada y salida
+C 0x710D si no es el que se esperaba
+C 0x7110 se marca, pero se sigue leyendo hasta el final
+
+B 0x7537 SI UN PUNTO SE VE O NO. Con el color de la casilla en la mano decide si el punto contrasta con el fondo: lo que se imprime es la forma, y un dibujo del mismo color que el fondo no se imprime.
+C 0x753B el color de esta casilla
+C 0x7548 se compara con el de al lado
+C 0x7550 y si contrasta, se saca el punto
+
+B 0x77D6 EL FONDO DEL MENU.
+C 0x77DE rellena de 0xF0 los 0x1D8 bytes de la VRAM 0x0300
+C 0x77E7 los patrones, primera mitad
+C 0x77F0 y segunda
+C 0x77F9 el color
+C 0x7802 y los patrones de sprite, que van una sola vez
+
+B 0x4C76 COMO SE CUELA EN LA INTERRUPCION DEL JUEGO. Se trae 256 bytes del arranque del juego a la RAM, busca el `ld (0xFD9B),hl` con el que instala su gancho, y lo cambia por uno que guarda el gancho en 0xD130 y le pasa el control a este cartucho. Luego ejecuta la copia parcheada, no la original.
+C 0x4C88 copia 256 bytes del INIT del vecino leyendolos de su ranura
+C 0x4C8F busca el 0x9B seguido de 0xFD: el operando de la instruccion del gancho
+C 0x4C9B y le encaja encima los cinco bytes de 0x4CB9
+D 0x4CB9 0x4CBE parche_del_gancho  Los cinco bytes: 22 9B FD (ld (0xFD9B),hl) pasa a ser 22 30 D1 (ld (0xD130),hl) mas CD 14 D8 (call 0xD814)
+F 0x4CB9 5
+
+B 0x4CA6 LDIR ENTRE RANURAS. Copia BC bytes de (HL) en la ranura del vecino a (DE) en la RAM, byte a byte con RDSLT.
+L 0x4CA6 copia_del_vecino
+
+C 0x4C79 primero se lleva a 0xD814 el trozo al que va a apuntar el parche
+C 0x4C7C 0x4D bytes
+C 0x4C85 los 256 primeros del arranque del juego
+C 0x4C91 cpir hasta dar con el 0x9B
+C 0x4C93 si no aparece en 256 bytes, este cartucho no sirve
+C 0x4C9A retrocede al 0x9B, que cpir se lo habia pasado
+C 0x4C9F cinco bytes encima: la instruccion pasa a guardar el gancho del juego y llamarnos a nosotros
+
+C 0x4CAB RDSLT, un byte cada vez: no hay LDIR entre ranuras
+
+B 0x4CCA ESTO CORRE EN 0xD814, NO AQUI. Restale 0x8B4A para saber a que linea salta. Es a donde va a parar el `call 0xD814` que el parche dejo metido en el arranque del juego, o sea que se ejecuta DENTRO del juego, con su ranura puesta.
+C 0x4CCB salva los 0x2CA bytes de la zona de trabajo de la BIOS que el juego acaba de montar
+C 0x4CD6 y planta el gancho propio en H.KEYI: un `jp 0xD299`, que es el bloque de 0x4E40
+C 0x4CE1 la direccion de retorno dice por donde iba el arranque del juego
+C 0x4CE5 se le resta el sitio de la copia y se le suma el de verdad
+C 0x4CF0 y se vuelve al juego, a la instruccion de despues del parche, ya en la ROM y no en la copia
+
+C 0x4CF1 la otra puerta, esta llamada desde 0x40A0: la misma cuenta, pero entrando de nuevas
+C 0x4D02 se pone la ranura del juego en la pagina 1
+C 0x4D05 y se llama a la copia parcheada de su arranque
+
+B 0x4D17 ESTO CORRE EN 0xD170, NO AQUI. Restale 0x8459. ES EL GANCHO DE INTERRUPCION, o sea el trozo que la maquina ejecuta cincuenta veces por segundo mientras el juego corre. Aqui es donde el Game Master vigila el teclado y le toca las variables al juego.
+C 0x4D18 con (0xD13B) puesto no se hace nada: es el interruptor general
+C 0x4D1D hay que leer el estado del VDP igual que lo haria el juego
+C 0x4D20 y llamar al gancho ORIGINAL, el que se guardo: el juego no puede notar nada
+C 0x4D23 IX, la rutina de interrupcion propia del juego
+C 0x4D27 IY, su ranura, que es lo que pide CALSLT
+C 0x4D2D la linea 7 del teclado
+C 0x4D31 bit 4
+C 0x4D36 y la linea 8
+C 0x4D3B bits 1 y 2, que con el otro hacen las tres teclas de truco
+C 0x4D3E y se comparan con las de la vuelta anterior, para cazar solo el momento en que se pulsan
+C 0x4D41 lo que habia antes
+C 0x4D43 xor y and: se queda con las que ANTES no estaban y AHORA si. Sin esto una pulsacion contaria cincuenta veces por segundo
+C 0x4D47 la primera tecla: salir del juego y volver al Game Master
+C 0x4D4B por CALSLT, porque el cartucho no esta puesto: hay que llamarse a uno mismo desde fuera
+C 0x4D52 ¿hay algun truco pedido?
+C 0x4D58 lee la variable de fase del juego, la que dijo la cabecera
+C 0x4D5F y la compara con la de la vuelta anterior: solo se actua cuando CAMBIA de fase
+C 0x4D63 y solo si la fase nueva es la que se pidio
+C 0x4D69 entonces si, se le aplican los trucos
+C 0x4D70 el ranking: si el juego tiene marcador, se le sigue la pista
+C 0x4D77 (0xD339) es la marca que 0x5E5E puso a los juegos de dos jugadores
+C 0x4D7D los punteros a las dos puntuaciones
+C 0x4D88 0xD280 esta dentro de este mismo bloque: copia tres bytes de marcador
+C 0x4D91 y el segundo jugador solo si lo hay
+C 0x4D9B y se acaba devolviendole el control al juego, con IX ya cargado con su propia rutina
+C 0x4D9D la otra forma de leer el marcador, para los juegos marcados
+C 0x4DB7 el modo en el que se esta
+C 0x4DCB las otras dos teclas de truco
+C 0x4DD2 trece pasos de golpe
+C 0x4DF3 la tercera tecla: sube el contador de trece en trece
+C 0x4DFC y se topa en 0xFF, sin dar la vuelta
+C 0x4E15 se le suma al de la RAM y, si desborda, se le devuelve el control al juego
+C 0x4E1E COPIAR UN MARCADOR de tres bytes, hacia atras
+C 0x4E27 COMPARAR DOS MARCADORES de tres bytes, del mas alto al mas bajo
+C 0x4E2F si el nuevo es mayor, se copia encima: asi se mantiene el record
+C 0x4E40 EL GANCHO QUE SE REINSTALA. Corre en 0xD299
+C 0x4E43 se lleva 128 bytes de la pila de donde este a 0xDF80
+C 0x4E4C y se cambia a esa
+C 0x4E4F devuelve a su sitio los 0x314 bytes de la zona de trabajo de la BIOS
+C 0x4E5D y vuelve a plantar el gancho, por si el juego lo habia pisado
+C 0x4E61 LA TECLA DE CONGELAR
+C 0x4E67 un contador que cambia de paridad en cada pulsacion: par es "corriendo" e impar "congelado"
+C 0x4E70 y el aviso al jugador NO es un rotulo en pantalla: es EL LED DE CAPS, que se enciende y se apaga. Asi el cartucho avisa sin pintar nada encima del juego
+C 0x4E76 CALLAR EL PSG. Los registros 8, 9 y 10 son los volumenes de los tres canales: a cero los tres, y el juego se queda mudo mientras esta congelado
+C 0x4E85 GUARDAR LOS TRES VOLUMENES antes de callarlos, para poder devolverlos
+C 0x4E9A y aqui hay un ahorro de Konami: el volumen del canal C se guarda en 0xD12D, que es TAMBIEN el byte bajo del IY con el que 0x4D27 llama por CALSLT. Se puede porque CALSLT solo mira IYh, que es 0xD12E y lleva la ranura
+C 0x4E9E descongelar: contador a cero
+C 0x4EA2 el LED de CAPS, apagado
+C 0x4EA5 y el sonido, devuelto
+
+B 0x4EAD MIENTRAS EL JUEGO ESTA CONGELADO. Sube (0xD13B) para que el gancho de interrupcion no se meta consigo mismo, hace lo suyo, y lo vuelve a bajar.
+C 0x4EAF el interruptor: con esto puesto, el gancho de 0x4D17 se sale a la primera
+C 0x4EBA calla el PSG
+C 0x4EBD IX y la ranura del juego, para poder volver
+C 0x4ECC lee las teclas, ya sin el juego de por medio
+C 0x4ED0 el bit de mas peso: seguir
+C 0x4ED3 el siguiente: entrar en el modo de mirar la memoria
+C 0x4ED6 y el siguiente: empezar a contar
+C 0x4EDB y con el bit 2, a la impresora
+C 0x4EF8 DEVOLVER LOS TRES VOLUMENES del PSG, los que 0x4E85 guardo
+
+B 0x4F13 LEER LAS TECLAS DE TRUCO. Tres lineas del teclado, cada una con su mascara, juntadas en un solo byte de banderas. Al final se compara con la lectura anterior para quedarse con las que ACABAN de pulsarse, igual que hace el gancho de interrupcion.
+L 0x4F13 lee_las_teclas_de_truco
+C 0x4F15 la linea 1
+C 0x4F18 cpl porque el teclado del MSX da los bits al reves: cero es pulsada
+C 0x4F1E la linea 6
+C 0x4F24 y una tecla vale por dos: si esta el bit 1, se enciende ademas el 3
+C 0x4F2F la linea 7
+C 0x4F36 tres desplazamientos para dejar cada bandera en su sitio
+C 0x4F3D lo que habia en la vuelta anterior
+C 0x4F3F xor y and: solo las nuevas
+
+B 0x5582 BUSCAR EL JUEGO EN LA TABLA DE APANOS. Recorre 0x5AD1 comparando el numero de catalogo contra el que se averiguo, y se sale por la rutina que encuentre.
+L 0x5582 busca_apano
+
+B 0x48E3 EL MODIFY MODE: EL MENU DE LOS TRUCOS. Es a lo que se viene: elegir en que fase empezar y con cuantas vidas. Cinco lineas -MODIFY STAGE NUMBER, MODIFY PLAYER NUMBER, RANKING MODE, COLOR TEST PATTERN y START GAME- sobre los rotulos de 0x4B42.
+C 0x48EC los rotulos del menu
+C 0x48F5 y el "RC 7xx" del juego que se ha reconocido, para que se vea cual es
+C 0x48FD cinco lineas
+C 0x4900 y a la rutina que toque
+
+B 0x490D ¿HAY JUEGO? (0xD301) a 0xFF quiere decir que no se reconocio ninguno, y entonces no hay nada que modificar.
+C 0x4912 MODIFY STAGE NUMBER
+C 0x4915 sin juego, no se entra
+C 0x4917 (0xD302) a 0xFF: el juego no esta en ninguna tabla
+C 0x491D pero si trae puntero de vidas en su cabecera, con eso basta
+C 0x4926 y si esta en la tabla de trucos, se comprueba que tenga rutina
+C 0x4940 pide la FASE y la guarda en 0xD31A
+C 0x4949 y las VIDAS, en 0xD31B. Esas dos son las que leen luego las veintiuna rutinas de truco
+C 0x4954 y se marcan los bits de "hay truco pedido" en 0xD317
+C 0x498C MODIFY PLAYER NUMBER, la misma forma con otra tabla
+C 0x49A2 aqui la tabla es la de apanos, 0x5AD1
+C 0x49BD los dos numeros van a 0xD318 y 0xD319
+C 0x49CF y su propio bit en 0xD317
+
+B 0x5E40 IDENTIFICAR EL CARTUCHO DE AL LADO. Y detras, los tres arreglos por numero de catalogo que no caben en ninguna tabla.
+C 0x5E43 el numero que acaba de averiguar
+C 0x5E47 RC-736 lleva cuatro de algo, y se acabo
+C 0x5E52 RC-703 y RC-704 -Time Pilot y Frogger-
+C 0x5E59 y RC-710 y RC-711 -los dos Hyper Olympic-
+C 0x5E5E llevan puesta la misma marca en 0xD339
+C 0x5E64 empieza por poner los 22 bytes POR DEFECTO de 0x6034: si el juego no dice nada, valen esos
+C 0x5E71 y 0xFF en 0xD313, que es la marca de "no hay"
+C 0x5E80 con "AB" se traen 19 bytes tal cual a 0xD300: la cabecera vieja es un volcado, sin mas
+C 0x5E92 con "CD" son 21, y NO van directos: se dejan aparte, en 0xD351, y se reparten
+C 0x5E9E el numero de catalogo, que ese si va siempre
+C 0x5EA6 0xFF de relleno en el hueco de al lado
+C 0x5EAB y aqui esta la gracia del formato nuevo: un byte de BANDERAS, y cada `rra` saca un bit que dice si el campo que viene esta o no
+C 0x5EAF el primer bit: dos bytes mas uno
+C 0x5EBA el segundo: el puntero de las vidas y uno mas
+C 0x5EC9 y los seis ultimos, uno por cada direccion de la lista de 0x5EE6
+C 0x5ED0 bit puesto, campo que no viene: se deja el valor por defecto
+C 0x5ED3 bit a cero, se copia el que trae el juego
+B 0x5E64 Primero por la segunda cabecera de 0x4010, "AB" o "CD"; y si no la lleva, por la suma de comprobacion.
+C 0x5E74 lee 0x4010 del vecino
+C 0x5E7A DCOMPR contra los bytes 41 42, o sea "AB": la cabecera vieja, 19 bytes
+C 0x5E8C y si no, contra 43 44, o sea "CD": la nueva, 21 bytes
+
+B 0x5EF5 LA FIRMA. Si no hay cabecera, suma los 256 bytes que van de 0x5000 a 0x50FF de la ROM del vecino y busca esa suma en la tabla de 0x5F3A.
+C 0x5F00 RDSLT byte a byte de la ranura del vecino
+C 0x5F05 y los va sumando en DE, con el acarreo a D
+C 0x5F1B DCOMPR de la suma contra cada firma de la tabla
+C 0x5F29 acertada, coge el puntero a los 19 bytes de cabecera postiza
+
+D 0x5AD1 0x5B02 tabla_de_apanos  Los 16 juegos que necesitan un apano aparte: numero de catalogo en BCD y rutina. Termina en 0xFF
+F 0x5AD1 3
+
+D 0x5F3A 0x6034 tabla_de_firmas  62 compilaciones de 28 juegos: la suma de sus bytes 0x5000-0x50FF y el puntero a su cabecera. Termina en la palabra 0000
+F 0x5F3A w2
+
+D 0x6034 0x604A cabecera_por_defecto  Los 22 bytes que se copian a 0xD300 cuando no se sabe que juego hay: 0xD301 se queda en 0xFF, que no casa con ninguna entrada
+F 0x6034 8
+
+D 0x604A 0x626E cabeceras_postizas  Las 29 cabeceras de 19 bytes, en orden de numero de catalogo, de RC-700 a RC-733. Los dos primeros bytes son el RC en BCD y detras van los punteros a las variables del juego
+F 0x604A 19
+
+D 0x7028 0x7040 nombres_de_fichero  GAMEDT, SCREEN, HISCOR y RANKDT, de seis letras cada uno: las extensiones .Gxx, .Sxx, .Hxx y .Rxx del manual
+F 0x7028 6
+
+# --------------------------------------------------------------------------
+# LOS ROTULOS DE PANTALLA
+#
+# 0x6294 los pinta, y el formato es una lista de trozos:
+#     [direccion de VRAM, 2 bytes] [caracteres...] 0xFE   <- y otro trozo
+#     ...
+#     0xFF                                                <- y se acabo
+# Cada caracter va a la VRAM con WRTVRM y la direccion se incrementa, asi que
+# un trozo es una linea horizontal. Las direcciones caen en la tabla de
+# nombres, que empieza en 0x3800: fila y columna salen de (dir-0x3800)/32 y %32.
+#
+# Las letras y las cifras estan donde el ASCII. Hay DOS codigos que salen como
+# hueco y no esta comprobado en que se diferencian: el 0x00, que separa las
+# palabras de las opciones, y el 0x40, que rellena a los lados de los titulos.
+# La sospecha, SIN COMPROBAR, es que el 0x40 sea el hueco de los titulos, que
+# van resaltados; para saberlo hay que volcar la tabla de patrones y mirarlos.
+#
+# `tools/pantallas.py` los decodifica y los enseña colocados como en pantalla.
+# Son diecisiete bloques, y de ahi salen estas diecisiete directivas.
+B 0x6294 PINTAR UN BLOQUE DE ROTULOS. Lee la direccion de VRAM, escribe caracteres hasta un 0xFE y vuelve a empezar; el 0xFF cierra.
+L 0x6294 pinta_rotulos
+
+D 0x4525 0x4575 rotulos_menu_principal  MENU / DISK SAVE / DISK LOAD / TAPE SAVE / TAPE LOAD / RANKING MODE / END. Lo pinta el ld hl de 0x44F3
+F 0x4525 16
+D 0x459E 0x45D8 rotulos_guardar_en_disco  HI SCORE / SCREEN DATA / GAME DATA / RANKING DATA / END. Lo pinta el ld hl de 0x4589
+F 0x459E 16
+D 0x45E2 0x460E rotulos_guardar_en_cinta  HI SCORE / GAME DATA / RANKING DATA / END. Sin SCREEN DATA: en cinta no cabe. Lo pinta el ld hl de 0x4595
+F 0x45E2 16
+D 0x46D4 0x4704 rotulos_ranking_opciones  DISPLAY DATA / CHANGE NAME / PRINT DATA / END. Lo pinta el ld hl de 0x46CB
+F 0x46D4 16
+D 0x477C 0x47B6 rotulos_cargar_pantalla  LOAD SCREEN / LOAD DISK DATA / LOAD TAPE DATA / END. Lo pinta el ld hl de 0x4765
+F 0x477C 16
+D 0x4850 0x4894 rotulos_modo_pantalla  SCREEN DISPLAY MODE / DISPLAY ALL SCREEN / PRINT SCREEN / END. Lo pinta el ld hl de 0x4823
+F 0x4850 16
+D 0x489A 0x48DD rotulos_menu_self  SELF MODE MENU / COLOR TEST PATTERN / LOAD SCREEN DATA / END. El "SELF" del manual. Lo pinta el ld hl de 0x471E
+F 0x489A 16
+D 0x4960 0x498C rotulos_cambiar_fase  MODIFY STAGE NUMBER / STAGE NUMBER>. Lo pinta el ld hl de 0x4931
+F 0x4960 16
+D 0x49D4 0x4A00 rotulos_cambiar_vidas  MODIFY PLAYER NUMBER / PLAYER NUMBER>. Lo pinta el ld hl de 0x49AE
+F 0x49D4 16
+D 0x4A3E 0x4A8E rotulos_modo_ranking  RANKING MODE / LOAD DISK DATA / LOAD TAPE DATA / CLEAR RANKING DATA / END. Lo pinta el ld hl de 0x4A11
+F 0x4A3E 16
+D 0x4B42 0x4BB7 rotulos_menu_modify  MODIFY MODE MENU / MODIFY STAGE NUMBER / MODIFY PLAYER NUMBER / RANKING MODE / COLOR TEST PATTERN / START GAME. El "MODIFY" del manual, y el menu que da los trucos. Lo pinta el ld hl de 0x48EC
+F 0x4B42 16
+D 0x56A0 0x56BA rotulos_ranking_1p  RANKING / INPUT 1P NAME. Lo pinta el ld hl de 0x559C
+F 0x56A0 16
+D 0x56BA 0x56CA rotulos_ranking_2p  INPUT 2P NAME. Lo pinta el ld hl de 0x55CB
+F 0x56BA 16
+D 0x56CA 0x56D7 rotulos_nombre_1p  1P NAME >. Lo pinta el ld hl de 0x5678
+F 0x56CA 16
+D 0x56D7 0x56E4 rotulos_nombre_2p  2P NAME >. Lo pinta el ld hl de 0x568E
+F 0x56D7 16
+D 0x56E4 0x56F1 rotulos_ok_retry  OK / RETRY. Lo pinta el ld hl de 0x5605
+F 0x56E4 16
+D 0x7968 0x7977 rotulos_copyright  El (c) KONAMI 1986 de la pantalla de titulo, que es lo que fecha esta compilacion. Lo pinta el ld hl de 0x7828
+F 0x7968 16
+
+# --------------------------------------------------------------------------
+# LOS GRAFICOS
+#
+# 0x62F7 es el descompresor, y escribe DIRECTO a la VRAM por el puerto de
+# datos, sin pasar por la RAM. El bloque empieza por la direccion de VRAM a la
+# que va (dos bytes), que se le pasa a SETWRT, y detras vienen las tiradas:
+#
+#     [cuenta en los 7 bits bajos + bit 7 de marca] [uno o varios bytes]
+#
+# Con el bit 7 puesto, los `cuenta` bytes de detras van tal cual; sin el, el
+# byte que sigue se repite `cuenta` veces. Una cuenta de cero cierra el bloque.
+# Los `push hl / pop hl` y `push ix / pop ix` de en medio no hacen nada: son
+# espera para que al VDP le de tiempo a tragarse el byte anterior.
+#
+# 0x62E4 lo llama TRES veces sumandole 0x800 al destino cada vez, que es como
+# se rellenan los tres tercios de la pantalla en SCREEN 2.
+#
+# 0x7852 es otra cosa: pinta un rectangulo de caracteres ya sueltos, con B
+# filas y C columnas, saltando de 32 en 32 por la tabla de nombres.
+B 0x62E4 CARGAR LOS TRES TERCIOS. Llama al descompresor tres veces, sumando 0x800 al destino: los tres tercios de SCREEN 2.
+B 0x62F7 EL DESCOMPRESOR. Lee del bloque la direccion de VRAM, y va soltando tiradas por el puerto de datos: bit 7 puesto, tantos bytes literales; a cero, un byte repetido. Cuenta cero, se acabo.
+L 0x62F7 descomprime_a_vram
+B 0x7852 PINTAR UN RECTANGULO DE CARACTERES. B filas por C columnas, saltando de 32 en 32 por la tabla de nombres.
+L 0x7852 pinta_rectangulo
+
+D 0x50D0 0x5218 gfx_patrones_comprimidos  Comprimido; lo suelta 0x50B3 en la VRAM 0x2180 por los tres tercios
+F 0x50D0 16
+D 0x5218 0x5239 gfx_colores_comprimidos  Comprimido; lo suelta 0x50C7 en la VRAM 0x0000 por los tres tercios
+F 0x5218 16
+D 0x536F 0x54D1 gfx_pantalla_de_ranking  Comprimido; lo suelta 0x5313 al empezar el modo RANKING
+F 0x536F 16
+
+C 0x780D rellena de 0xFC los 0x180 bytes de la VRAM 0x0980
+C 0x7819 el rectangulo grande: tres filas de 22 casillas
+C 0x7825 y otro de tres por dos
+C 0x782B los rotulos, entre ellos el (C) KONAMI 1986
+C 0x7831 el primer bloque comprimido
+C 0x783D otro rectangulo, tres por 20
+C 0x7843 el segundo comprimido
+C 0x7849 y los 24 bytes de atributos de sprite
+
+B 0x6AAA MONTAR LA LLAMADA ENTRE RANURAS. Se copia la plantilla de trece bytes a 0xD33E y se le rellenan los huecos: la ranura propia y la direccion a la que hay que ir. Hace falta porque con el juego puesto en la pagina 1 este cartucho no esta, y para llamarse a si mismo tiene que hacerlo desde la RAM.
+C 0x6AAF el enganche del RST 30h, que la BIOS lee de 0xD0A3
+C 0x6ABD trece bytes de plantilla
+C 0x6AC3 y se le encajan la ranura...
+C 0x6ACC ...y la direccion, que son los tres ceros que la plantilla dejo en medio
+
+B 0x70A2 ESCRIBIR UN BLOQUE EN LA CINTA. La hermana de 0x71EC: byte a byte con TAPOUT, sumandolos, y al final la suma.
+L 0x70A2 escribe_en_la_cinta
+C 0x70A7 TAPOUT saca un byte a la cinta
+C 0x70B1 y se va sumando lo escrito
+C 0x70BA la suma, detras del bloque: es lo que 0x7209 comprobara al leer
+
+B 0x67A6 GUARDAR LA PANTALLA ENTERA EN DISCO. Ocho pasadas de 0x800 bytes, que son los 16 KB de VRAM.
+C 0x67AE le dice al BDOS donde esta el buffer
+C 0x67B4 y escribe el bloque
+C 0x67BC de paso lo descomprime a la VRAM, para que se vea lo que se esta guardando
+C 0x67C4 hasta 0x40, que por 0x800 son los 16 KB enteros
+C 0x67C8 y al acabar, los registros del VDP otra vez
+
+B 0x67CE Y LEERLA DE VUELTA. La misma cuenta al reves: 0x800 bytes cada vez hasta completar la VRAM.
+C 0x67D5 LDIRMV saca de la VRAM a la RAM
+C 0x67E8 y se lee el bloque del disco
+
+B 0x67F5 GUARDAR SOLO LO QUE IMPORTA DE LA VRAM. En vez de los 16 KB enteros, las cuatro zonas que de verdad llevan algo: color, nombres, patrones y patrones de sprite.
+C 0x680C el color, tres tercios
+C 0x6814 la tabla de nombres, uno
+C 0x681C los patrones, tres
+C 0x6824 y los de sprite, uno
+
+B 0x6829 UNA ZONA DE VRAM AL DISCO, de 0x800 en 0x800 y B veces.
+C 0x6833 se saca de la VRAM
+C 0x6839 se le pasa al BDOS
+C 0x683D y al disco
+
+B 0x5968 IMPRIMIR EL RANKING. Monta la hoja en la RAM -0x3BF caracteres, que es lo que cabe- y la manda entera a la impresora.
+C 0x5972 la hoja, llena de espacios
+C 0x597E la anchura y el margen
+C 0x5986 el encabezado con el nombre del juego
+C 0x598C y el numero de catalogo, metido en el hueco que el encabezado dejo
+C 0x599F las lineas, una por puesto
+C 0x59A2 y a imprimir
+
+B 0x7805 LA PANTALLA DE TITULO. Seis piezas: dos rectangulos de caracteres, un bloque de rotulos, dos bloques comprimidos y los atributos de los sprites.
+D 0x7868 0x7894 gfx_titulo_1  Comprimido; lo suelta 0x782E
+F 0x7868 16
+D 0x7894 0x78D0 titulo_rectangulo_3x20  60 caracteres, 3 filas de 20, a la VRAM 0x39A6 desde 0x7834
+F 0x7894 20
+D 0x78D0 0x7920 gfx_titulo_2  Comprimido; lo suelta 0x7840
+F 0x78D0 16
+D 0x7920 0x7962 titulo_rectangulo_3x22  66 caracteres, 3 filas de 22, a la VRAM 0x3865 desde 0x7810
+F 0x7920 22
+D 0x7962 0x7968 titulo_rectangulo_3x2  6 caracteres, 3 filas de 2, a la VRAM 0x389A desde 0x781C
+F 0x7962 2
+D 0x7977 0x798F titulo_sprites  24 bytes a la VRAM 0x3B00, que es la tabla de atributos de sprite: seis sprites de cuatro bytes (fila, columna, patron, color)
+F 0x7977 4
+D 0x798F 0x799F menu_sprites_alternos  Los otros cuatro atributos de sprite del menu, que 0x52C8 copia a la VRAM 0x3B08. Se turnan con los CUATRO ULTIMOS de titulo_sprites -0x797F, que carga 0x52C3-: el bit 0 de (0xD144), que 0x5291 incrementa en cada vuelta del bucle de eleccion, elige una tanda u otra. O sea que el adorno del menu se mueve
+F 0x798F 4
+
+B 0x77D6 EL FONDO DEL MENU. Cuatro bloques comprimidos y un relleno, con los destinos de VRAM de ESTE cartucho: color en 0x0000, patrones en 0x2000, nombres en 0x3800, patrones de sprite en 0x1800 y sus atributos en 0x3B00. Lo dicen los ocho registros de 0x6284, no la disposicion de siempre.
+D 0x799F 0x7B43 gfx_menu_color  Comprimido. 0x77F6 lo suelta con 0x62E4, que repite el MISMO bloque tres veces sumando 0x800: 680 bytes en la VRAM 0x0508, 0x0D08 y 0x1508, o sea la tabla de COLOR de los tres tercios (R3=0x7F, base 0x0000)
+F 0x799F 16
+D 0x7B43 0x7B90 gfx_menu_patrones_de_sprite  Comprimido. 0x77FF entra por 0x62FB -la puerta en la que el destino llega en DE- y suelta 256 bytes en la VRAM 0x1800 UNA sola vez: son los patrones de sprite (R6=0x03), ocho dibujos de 16x16
+F 0x7B43 16
+D 0x7B90 0x7CCF gfx_menu_patrones_1  Comprimido. 0x77E4, otra vez por los tres tercios: 472 bytes en la VRAM 0x2300, 0x2B00 y 0x3300, que es la tabla de PATRONES (R4=0x07, base 0x2000)
+F 0x7B90 16
+D 0x7CCF 0x7EDA gfx_menu_patrones_2  Comprimido. 0x77ED, tres tercios: 680 bytes en la VRAM 0x2508, 0x2D08 y 0x3508. Es la segunda mitad de los patrones, y con el anterior tapa 0x2300..0x27AF de cada tercio
+F 0x7CCF 16
+D 0x7EDA 0x7FEA relleno  272 bytes a 0xFF hasta la marca. Es lo que sobro del cartucho: no lo lee nadie
+F 0x7EDA 16
+
+C 0x6549 los ocho bytes del cursor van a la VRAM 0x21D0 o a la 0x31D0 segun (0xD13D), que dice si hay juego al lado o no
+C 0x6569 PINTAR EL CURSOR: la casilla 0x3A en el sitio que dice (0xD168)
+C 0x6571 Y BORRARLO: la misma casilla a cero
+C 0x6583 el tope, que es una linea menos que las que hay
+C 0x6586 la lista de sitios, guardada
+C 0x6589 y el primero, que es donde arranca el cursor
+C 0x6590 se pinta
+C 0x6596 y a esperar tecla
+C 0x6599 ESPACIO elige
+C 0x659E se borra el cursor
+C 0x65A4 y la linea elegida se deja en 0xD163 y en A
+C 0x65A9 arriba: menos uno
+C 0x65AF abajo: mas uno
+C 0x65B3 cualquier otra tecla no hace nada
+C 0x65BD la linea de ahora, mas o menos uno
+C 0x65BE si se pasa por abajo, se va a la ultima
+C 0x65C2 y si se pasa por arriba, a la primera: el menu da la vuelta por los dos lados
+C 0x65CA se busca el sitio de la linea nueva
+C 0x65D6 se borra el cursor de donde estaba
+C 0x65DD y se pinta donde va ahora
+
+B 0x6581 ELEGIR UNA OPCION. Recibe en HL la lista de SITIOS del menu -una direccion de la tabla de nombres por linea- y en B cuantas lineas tiene. Guarda B-1 como tope en (0xD164), mueve el cursor con las flechas y devuelve en A la linea elegida al pulsar ESPACIO. Las trece llamadas de este cartucho son las que dan el tamano de cada bloque de sitios: tools/menus.py las lee.
+B 0x6368 DESPACHAR. `pop hl` recoge la direccion de retorno, que es el byte de DESPUES del CALL, y de ahi lee la palabra numero A y salta. O sea que la tabla de punteros va PEGADA al `call 0x6368`, dentro del flujo de codigo: son catorce, y las declara el .entries con !tabla.
+
+D 0x4292 0x429E menu_principal_rutinas  Seis punteros, la tabla del despacho de 0x428F: 0x42B1 DISK SAVE, 0x4356 DISK LOAD, 0x43D4 TAPE SAVE, 0x442C TAPE LOAD, 0x447F RANKING MODE y 0x44D8 END. Seis porque seis dice el ld b de 0x427E
+F 0x4292 2
+D 0x429E 0x42A4 menu_principal_codigos  Un byte por opcion -0x10, 0x20, 0x30, 0x40, 0x60 y 0x00- que 0x4284 mete en (0xD136). Ese byte es el que manda el resto de la operacion: el nibble ALTO dice de que va -1 guardar en disco, 2 cargar de disco, 3 guardar en cinta, 4 cargar de cinta, 6 ranking- y el BAJO, sobre que dato. Por eso los submenus hacen `add a,010h` (0x42CB) o `add a,030h` (0x43E3) en vez de una tabla
+F 0x429E 6
+D 0x4575 0x4581 sitios_menu_principal  Las SEIS filas del menu de 0x4525, en direcciones de la tabla de nombres: 0x3A2B, 0x3A4B, 0x3A6B, 0x3A8B, 0x3AAB y 0x3ACB. Van de 0x20 en 0x20, o sea una fila de pantalla cada una
+F 0x4575 2
+D 0x4581 0x4586 rotulo_rc  "RC 7" y el 0xFF de cierre, con el 0x40 que aqui hace de espacio. 0x4506 lo pinta con 0x6290 -la puerta del pintor de rotulos a la que la direccion de VRAM le llega en DE- y a continuacion 0x450D suelta detras el numero de (0xD301): junto salen el "RC 7xx" del juego que se ha reconocido en la otra ranura
+F 0x4581 5
+
+D 0x42D4 0x42DE guardar_en_disco_rutinas  Cinco punteros, la tabla del despacho de 0x42D1: las cinco lineas del menu de 0x459E (HI SCORE, SCREEN DATA, GAME DATA, RANKING DATA y END). La segunda y la tercera son la misma, 0x42DE
+F 0x42D4 2
+
+B 0x42B1 GUARDAR EN DISCO. Las cinco lineas hacen lo mismo con distinto dato, y las tres primeras siguen el mismo guion: comprobar que ese dato existe, pedir el nombre del fichero y escribirlo.
+C 0x42B1 espera a que haya unidad de disco
+C 0x42B6 monta la llamada entre ranuras que hace falta para leerle al juego
+C 0x42DE pide el nombre del fichero
+C 0x42E1 sin nombre, se vuelve al menu
+C 0x42E7 y a escribir la pantalla
+C 0x42ED este dato solo existe si el juego trae puntero en (0xD30C)
+C 0x42FE escribe los datos del juego
+C 0x4304 y el ranking, solo si hay (0xD332)
+C 0x431A pinta el encabezado y pide el nombre
+C 0x4326 "INPUT FILE NAME" al guardar
+C 0x432B y "SELECT FILE NAME" al cargar, que es la otra puerta
+C 0x4356 CARGAR DE DISCO: lo primero, mirar si hay unidad
+C 0x4359 sin disco no hay nada que hacer
+C 0x43BE antes de leer hay que dejar puesta la llamada entre ranuras
+C 0x43C7 pinta el nombre del dato
+C 0x43CA y busca el fichero en el disco
+C 0x43CD si no esta, se vuelve con carry
+C 0x43D4 GUARDAR EN CINTA: el mismo menu de cinco que el disco
+C 0x43E3 con el codigo de operacion a 3, que es "guardar en cinta"
+D 0x45D8 0x45E2 sitios_menu_guardar  Las CINCO filas del menu de 0x459E. Lo comparten guardar en disco (0x42C7) y guardar en cinta (0x43DF): el menu se pinta igual y lo que cambia es el codigo que cada uno suma
+F 0x45D8 2
+D 0x4379 0x4381 cargar_de_disco_rutinas  Cuatro punteros, la tabla del despacho de 0x4376
+F 0x4379 2
+D 0x4381 0x4385 cargar_de_disco_codigos  0x20, 0x22, 0x23 y 0x00: el codigo que 0x436B mete en (0xD136) por cada linea del menu de 0x45E2. El nibble alto 2 es "cargar de disco" y el bajo dice el dato; el 0x00 de END no es un dato, es salir
+F 0x4381 4
+D 0x460E 0x4616 sitios_menu_cargar  Las CUATRO filas del menu de 0x45E2. Lo comparten cargar de disco (0x4367) y cargar de cinta (0x4437)
+F 0x460E 2
+D 0x43EC 0x43F6 guardar_en_cinta_rutinas  Cinco punteros, la tabla del despacho de 0x43E9
+F 0x43EC 2
+D 0x4449 0x4451 cargar_de_cinta_rutinas  Cuatro punteros, la tabla del despacho de 0x4446
+F 0x4449 2
+D 0x4451 0x4455 cargar_de_cinta_codigos  0x40, 0x42, 0x43 y 0x00, los mismos datos que en disco con el nibble alto a 4
+F 0x4451 4
+D 0x4497 0x449F ranking_opciones_rutinas  Cuatro punteros, la tabla del despacho de 0x4494: las cuatro lineas del menu de 0x46D4 (DISPLAY DATA, CHANGE NAME, PRINT DATA y END)
+F 0x4497 2
+D 0x4704 0x470C sitios_menu_ranking  Las CUATRO filas del menu de 0x46D4
+F 0x4704 2
+D 0x472F 0x4735 menu_self_rutinas  Tres punteros, la tabla del despacho de 0x472C
+F 0x472F 2
+D 0x48DD 0x48E3 sitios_menu_self  Las TRES filas del menu de 0x489A, el SELF MODE del manual
+F 0x48DD 2
+D 0x4776 0x477C cargar_pantalla_rutinas  Tres punteros, la tabla del despacho de 0x4773
+F 0x4776 2
+D 0x47B6 0x47BC sitios_menu_cargar_pantalla  Las TRES filas del menu de 0x477C
+F 0x47B6 2
+D 0x4834 0x483A modo_pantalla_rutinas  Tres punteros, la tabla del despacho de 0x4831
+F 0x4834 2
+D 0x4894 0x489A sitios_menu_modo_pantalla  Las TRES filas del menu de 0x4850
+F 0x4894 2
+D 0x4903 0x490D menu_modify_rutinas  Cinco punteros, la tabla del despacho de 0x4900: las cinco lineas del menu de 0x4B42, que es el MODIFY MODE, o sea DONDE ESTAN LOS TRUCOS
+F 0x4903 2
+D 0x4BB7 0x4BC1 sitios_menu_modify  Las CINCO filas del menu de 0x4B42
+F 0x4BB7 2
+D 0x4A22 0x4A2A modo_ranking_rutinas  Cuatro punteros, la tabla del despacho de 0x4A1F
+F 0x4A22 2
+D 0x4A8E 0x4A96 sitios_menu_modo_ranking  Las CUATRO filas del menu de 0x4A3E
+F 0x4A8E 2
+D 0x5616 0x561A ok_retry_rutinas  Dos punteros, la tabla del despacho de 0x5613
+F 0x5616 2
+D 0x56F1 0x56F5 sitios_menu_ok_retry  Las DOS filas del menu de 0x56E4: 0x3A8B y 0x3ACB
+F 0x56F1 2
+D 0x7231 0x7237 impresora_rutinas  Tres punteros, la tabla del despacho de 0x722E
+F 0x7231 2
+D 0x7357 0x735D sitios_menu_impresora  Las TRES filas del menu de 0x731F, pegadas detras de sus rotulos
+F 0x7357 2
+
+D 0x4F9D 0x4FA3 menu_de_arranque_rutinas  Tres punteros, la tabla del despacho de 0x4F9A: 0x4FCD, 0x4FFB y 0x5006. Las dos ultimas dejan en (0xD129) un 1 o un 2, y con eso 0x5017 se va al MODIFY MODE (0x48E3) o al SELF MODE (0x470C)
+F 0x4F9D 2
+D 0x4FA3 0x4FA9 menu_de_arranque_rotulos  Tres punteros a los tres rotulos de aqui abajo, que 0x52A6 indexa por la linea elegida
+F 0x4FA3 2
+D 0x4FA9 0x4FCD rotulos_del_menu_de_arranque  Tres rotulos de doce casillas, 3 filas de 4: el bc,00304h que 0x4F91 guarda en (0xD142) y que 0x52B9 le pasa a pinta_rectangulo. No son letras ASCII como el resto de menus, sino casillas de la fuente grafica -0xAE, 0xAF, 0xB5..0xB8, 0xBE, 0xE4..0xEE-, asi que para leerlos hay que dibujarlos
+F 0x4FA9 12
+
+B 0x5D13 PONER LAS VIDAS. Tres instrucciones, y es el truco que vale para todos: coge las vidas que ha pedido el usuario en (0xD31B) y las escribe en la direccion que dice (0xD30A), que es el puntero a la variable de vidas del juego y sale de su cabecera postiza. Por eso casi todas las rutinas de trucos acaban saltando aqui.
+L 0x5D13 pon_las_vidas
+C 0x5D13 las vidas que se han pedido
+C 0x5D16 y el sitio donde el juego las guarda, que lo dijo la cabecera
+C 0x5D19 escritas: ese es el truco entero
+
+B 0x5E0F DIVIDIR PARA SABER LA VUELTA Y LA PISTA. Divide (A-1) entre C por restas y desplazamientos, dieciseis vueltas, y deja el cociente en E y el resto en L. Sirve para los juegos cuyas fases se repiten en ciclos: pedir la 15 de un juego de diez pistas es la vuelta 1, pista 5.
+L 0x5E0F divide_a_entre_c
+C 0x5E18 dieciseis vueltas, una por bit
+C 0x5E1B saca el bit de arriba del dividendo
+C 0x5E21 y prueba a restar: si no cabe, se devuelve
+
+B 0x633B BINARIO A BCD. Doble dabble de dieciseis vueltas: cada `daa` detras del `adc a,a` arregla el acarreo de nibble. Hace falta porque los marcadores de los juegos van en BCD y las fases se cuentan en binario.
+L 0x633B a_bcd
+B 0x634C BCD A BINARIO. El camino de vuelta, para un solo byte: el nibble alto por diez -a+a por cuatro mas a+a, que es lo mismo- mas el bajo.
+L 0x634C a_binario
+
+B 0x5B7B LOS TRUCOS, UNO POR JUEGO.
+C 0x5B7B RC-700 y RC-716: la fase pedida
+C 0x5B82 por diez, sumando x2 y x8
+C 0x5B88 a BCD, que es como lleva Athletic Land el marcador
+C 0x5B8C y se le planta: saltar de fase te pone tambien la puntuacion
+C 0x5B90 mas diez en BCD para el byte de arriba
+C 0x5B9A y la fase en binario a su 0xE054
+C 0x5BA0 RC-701 Antarctic Adventure: la fase pedida
+C 0x5BA3 entre DIEZ, que son las pistas que tiene el juego: de la once en adelante es la segunda vuelta
+C 0x5BA9 la pista va a dos sitios a la vez
+C 0x5BB0 y aqui esta el detalle: (0xD303) dice CUAL de las dos compilaciones de Antarctic es la de al lado
+C 0x5BC1 porque la variable no vale lo mismo en las dos
+C 0x5BDB RC-710 y RC-711: la prueba pedida
+C 0x5BDE entre cuatro, que son las pruebas de cada Hyper Olympic
+C 0x5BE5 la primera va a la variable que dijo la cabecera
+C 0x5BF6 y aqui se distinguen los dos cartuchos, por el numero de catalogo
+C 0x5C06 la marca de cada prueba va en 0xE050, tres bytes por prueba
+C 0x5C24 RC-712 Circus Charlie: primero las vidas
+C 0x5C2B de la sexta en adelante hay que dar la vuelta: son cinco numeros
+C 0x5C3A RC-713 Magical Tree: vidas, y luego lo demas
+C 0x5C42 el nivel, contando desde cero
+C 0x5C45 pero para la tabla se topa en ocho
+C 0x5C55 0x8A fijo, sea cual sea el nivel
+C 0x5C5B entre nueve, que son los niveles
+C 0x5C68 y el marcador de partida, dos bytes, para que no empieces a cero
+C 0x5C8C RC-714 Comic Bakery: solo las vidas, nada mas
+C 0x5C8F RC-715 Hyper Sports 1: la prueba, contando desde cero, en la variable de la cabecera
+C 0x5C96 RC-717 Hyper Sports 2: la prueba pedida
+C 0x5C99 entre TRES, que son las pruebas que trae este cartucho
+C 0x5CA2 RC-718 Hyper Rally: la etapa pedida
+C 0x5CA5 entre TRECE, que son las etapas del recorrido
+C 0x5CAC la etapa, contando desde uno
+C 0x5CB1 y su pareja de bytes de la tabla, a 0xE05B
+C 0x5CDA RC-721 Sky Jaguar: la fase pedida
+C 0x5CDD entre OCHO. Sky Jaguar no tiene fases separadas -es un solo recorrido continuo-, y lo que se escribe no es un numero de fase sino una POSICION: el resto por 256, o sea de 0x0000 a 0x0700 en saltos de 0x100
+C 0x5CE5 la posicion dentro del recorrido
+C 0x5CEB RC-725 Yie Ar Kung-Fu: primero las vidas
+C 0x5CF2 el rival, entre cinco
+C 0x5CFC de la sexta en adelante hay ademas una segunda vuelta que contar
+C 0x5D02 topada en tres
+C 0x5D0D y los dos bits bajos del combate a 0xE059
+C 0x5D1B RC-727 King's Valley: la sala pedida
+C 0x5D1E entre QUINCE, que son las piramides del juego
+C 0x5D23 el cociente es la vuelta
+C 0x5D29 y el resto, la sala, contada desde uno en un sitio y desde cero en otro
+C 0x5D30 mas su pareja de la tabla de dieciseis
+C 0x5D40 y solo en la sala 1 se conserva el valor; en las demas, cero
+C 0x5D6C RC-728 Mopi Ranger: la fase pedida, en BCD
+C 0x5D6F de la 33 en adelante se le restan 32: el juego solo cuenta hasta ahi
+C 0x5D79 y las vidas, tambien en BCD
+C 0x5D7C con el mismo tope, a partir de 51 se restan 50, y el `daa` arregla el BCD
+C 0x5D87 RC-729 Pippols: la fase pedida
+C 0x5D8A entre OCHO
+C 0x5D93 y la posicion del recorrido, siempre a 0xC0
+C 0x5D9A RC-730 Road Fighter: la fase pedida
+C 0x5D9D entre SEIS, que son los recorridos
+C 0x5DA3 la vuelta a 0xE042
+C 0x5DA7 y el recorrido donde diga la cabecera
+C 0x5DAB limpia la pantalla, que si no se queda la del menu
+C 0x5DB0 dos valores fijos para arrancar la carrera
+C 0x5DB9 RC-732 Konami's Soccer: solo limpia y escribe un 7 donde diga (0xD304)
+C 0x5DC2 RC-733 Hyper Sports 3: la prueba menos uno, y ya
+C 0x5DCB RC-736: la fase menos uno
+C 0x5DD8 y ademas la parte con la vuelta en el nibble alto y la fase en el bajo
+C 0x5DEA un 9 en la variable que dijo la cabecera
+C 0x5DF1 RC-737 Yie Ar Kung-Fu 2: la fase pedida
+C 0x5DF4 entre OCHO
+C 0x5DFD el resto donde diga la cabecera
+C 0x5DFF y la vuelta, topada en dos
+C 0x5E08 aqui las vidas no pasan por pon_las_vidas: van directas a 0xE053
+
+B 0x5E2E DEJAR LA PANTALLA LIMPIA ANTES DE SOLTAR EL JUEGO. Borra las 768 casillas de la tabla de nombres y esconde los sprites poniendo 0xD0 en el primer byte de sus atributos, que es la marca de "aqui se acaba la lista". La llaman los trucos que dibujan algo antes de devolver el control.
+L 0x5E2E limpia_la_pantalla La tabla de 0x5B02 manda aqui: veintiuna entradas de tres bytes -numero de catalogo en BCD y rutina- y cada rutina sabe DONDE tiene ese juego sus variables y QUE hay que escribirles. Dos juegos comparten rutina con otro y las dos veces por un motivo: RC-716 Cabbage Patch Kids usa la misma que RC-700 Athletic Land (0x5B7B) porque ES Athletic Land recompilado, y RC-711 Hyper Olympic 2 la misma que RC-710 (0x5BDB), que se distinguen dentro comparando (0xD301) con 0x10.
+
+D 0x5BC7 0x5BD1 fases_de_antarctic_1  RC-701 Antarctic Adventure: los diez valores que hay que meterle en su (0xE0E2) para empezar en cada etapa. 0x5BB4 elige esta tabla cuando (0xD303) esta a cero
+F 0x5BC7 10
+D 0x5BD1 0x5BDB fases_de_antarctic_2  Los mismos diez para la OTRA compilacion de RC-701, la de la cabecera postiza de 0x606D. Que las dos listas sean distintas -0x0D contra 0x0F en la tercera, 0x35 contra 0x3C en la ultima- es la prueba de que Konami sabia que habia dos compilaciones circulando y de que la variable no cae en el mismo sitio
+F 0x5BD1 10
+D 0x5C14 0x5C1C pruebas_de_hyper_olympic_1  RC-710: cuatro palabras que 0x5BF0 copia a la RAM del juego, una por prueba
+F 0x5C14 2
+D 0x5C1C 0x5C24 pruebas_de_hyper_olympic_2  Lo mismo para RC-711. La eleccion la hace el cp 0x10 de 0x5BF6 sobre (0xD301), que es el numero de catalogo: la unica diferencia entre los dos cartuchos, para el Game Master, son estos ocho bytes
+F 0x5C1C 2
+D 0x5C71 0x5C7A niveles_de_magical_tree  RC-713: nueve valores para su (0xE05D), uno por nivel, que 0x5C4B mete indexando por el que se pida
+F 0x5C71 9
+D 0x5C7A 0x5C8C marcador_de_magical_tree  Las nueve puntuaciones de partida, de dos bytes, que 0x5C62 copia a (0xE054): el marcador con el que empiezas si te saltas al nivel N, para que no quede en cero
+F 0x5C7A 2
+D 0x5CC0 0x5CDA etapas_de_hyper_rally  RC-718: trece palabras que 0x5CB1 copia a su (0xE05B)
+F 0x5CC0 2
+D 0x5D4C 0x5D6C salas_de_kings_valley  RC-727: dieciseis parejas que 0x5D30 reparte entre (0xE056) y (0xE057)
+F 0x5D4C 2
+D 0x5EE6 0x5EF2 variables_que_se_guardan  Seis direcciones de la RAM del propio Game Master -0xD308, 0xD30C, 0xD30E, 0xD310, 0xD306 y 0xD314-. 0x5EC9 las recorre con IX y va copiando dos bytes de cada una, o no, segun los bits que le lleguen en A: el `rra` de 0x5ED0 saca uno por vuelta y el `ld b,006h` de 0x5ECD dice que son seis
+F 0x5EE6 2
+
+D 0x4A35 0x4A3B nombre_por_defecto  "KONAMI". 0x4AB3 lo copia a (0xD478) al borrar la tabla de records: con el ranking a cero, los seis puestos llevan el nombre de la casa
+F 0x4A35 6
+D 0x4A3B 0x4A3E marcador_por_defecto  Los tres bytes que van con el nombre a (0xD459)
+F 0x4A3B 3
+D 0x594D 0x5950 sufijo_pt  Los tres caracteres que 0x592D pega detras de cada puntuacion del ranking
+F 0x594D 3
+
+D 0x4BF5 0x4BFF rotulo_color_test  Un bloque de rotulos de los de 0x6294: la direccion de VRAM 0x3AF8 y "KONAMI" con el 0xFF de cierre. Lo pinta el jp de 0x4BF2
+F 0x4BF5 10
+D 0x4BFF 0x4C1F patron_de_prueba_de_color  El COLOR TEST PATTERN del menu SELF, que lo carga 0x4BD5. Van en grupos que abre un byte con el bit 7 puesto -0x80 a 0x87- y detras los colores del MSX de esa franja: gris 0x0E, amarillo 0x0A, cian 0x07, verde 0x0C, magenta 0x0D, rojo 0x06 y azul 0x04
+F 0x4BFF 16
+
+D 0x509A 0x50AB gfx_arranque_comprimido  Comprimido; 0x5079 lo suelta con 0x62E4 en la VRAM 0x0400 por los tres tercios
+F 0x509A 16
+D 0x50AB 0x50B3 dibujo_de_ocho_bytes  Una casilla de 8x8 que 0x5082 lleva a la VRAM 0x2440 -patrones- por los tres tercios, con 0x62CE
+F 0x50AB 8
+D 0x52E7 0x52F3 cursor_del_menu_1  Doce casillas, 4x3, que 0x52DB pinta en la VRAM 0x3A05: el cursor del menu. El bc,00403h de 0x52DE es el que dice que son cuatro filas de tres
+F 0x52E7 3
+D 0x52F3 0x52FF cursor_del_menu_2  El otro cursor, 4x3 tambien. 0x52D3 elige uno u otro con el carry que traiga de la eleccion, o sea que el cursor cambia de dibujo segun por donde ande
+F 0x52F3 3
+
+B 0x6294 LA FUENTE NO USA EL 0x20. Las letras estan donde el ASCII, pero el hueco entre palabras es el 0x00 y el 0x40 es el hueco RESALTADO con el que se enmarcan los titulos: "@@MENU@@" sale como un rotulo con fondo. Los mensajes los cierra un 0xFF, salvo los que se copian con una longitud fija en BC. tools/cadenas.py los recorre y comprueba que la ultima de cada grupo acaba justo donde el presupuesto cierra el hueco.
+
+D 0x4226 0x422F texto_isk_basic  "isk BASIC", las nueve letras con las que el cartucho reconoce la ROM de disco. NO se lee desde aqui: este trozo esta dentro del bloque que 0x419A copia a 0xC000, asi que quien la carga es el `ld de,0C07Eh` de 0x41FC. La "D" no esta porque la comparacion arranca en la segunda letra
+F 0x4226 9
+D 0x4335 0x4345 texto_input_file_name  "INPUT FILE NAME". Lo pinta 0x4326
+F 0x4335 16
+D 0x4345 0x4356 texto_select_file_name  "SELECT FILE NAME". Lo pinta 0x432B, por la otra puerta de la misma rutina
+F 0x4345 17
+D 0x44C6 0x44D8 texto_print_ranking  "@@PRINT RANKING@@", con el hueco resaltado a los dos lados
+F 0x44C6 18
+D 0x4628 0x4636 punteros_de_la_operacion  Siete punteros a los rotulos de aqui abajo. 0x4616 los indexa con el nibble ALTO de (0xD136) menos uno, que es de donde sale lo que se esta haciendo. La quinta entrada es 0x0000: ese indice no se usa
+F 0x4628 2
+D 0x4636 0x466E rotulos_de_la_operacion  Los seis nombres de operacion que van de encabezado: DISK SAVE, DISK LOAD, TAPE SAVE, TAPE LOAD, RANKING y PRINTER. Este es el unico sitio del cartucho donde sale "PRINTER": en el menu principal la sexta linea es END
+F 0x4636 10
+D 0x468D 0x4695 punteros_del_dato  Cuatro punteros, que 0x4676 indexa con el nibble BAJO de (0xD136): el dato sobre el que va la operacion
+F 0x468D 2
+D 0x4695 0x46B2 rotulos_del_dato  GAME, SCREEN, HI SCORE y RANKING. Con el de arriba se compone el encabezado entero, "DISK SAVE" + "GAME", que es como el cartucho dice en una linea que va a guardar la partida en disco
+F 0x4695 8
+D 0x46BC 0x46C8 texto_search_file  "SEARCH FILE". Lo pinta 0x46B6
+F 0x46BC 12
+
+D 0x6A08 0x6A17 texto_disk_error  "@@DISK ERROR@@", el titulo del aviso. Lo pintan 0x69EA y 0x6B17
+F 0x6A08 15
+D 0x6A3F 0x6A4E texto_hit_return_key  "HIT RETURN KEY", el pie del aviso. Lo pinta 0x6A2C
+F 0x6A3F 15
+D 0x6A4E 0x6A5A punteros_de_errores_de_disco  Seis punteros a los cinco mensajes de abajo. 0x6A19 los indexa por el codigo de error que devuelve la ROM de disco, y la tercera y la quinta apuntan al mismo: dos codigos distintos dan "DISK FULL"
+F 0x6A4E 2
+D 0x6A5A 0x6AAA errores_de_disco  =FILE NOT FOUND=, =TOO MANY FILES=, =DISK FULL=, =DISK READ ERROR= y =DISK IO ERROR=. Los cinco cierran con 0xFF y el ultimo acaba clavado en 0x6AAA, que es donde el presupuesto cierra el hueco: esa es la comprobacion de que el formato es este y no otro
+F 0x6A5A 17
+D 0x6B86 0x6B97 texto_write_protected  "=WRITE PROTECTED=", diecisiete bytes exactos: no lleva 0xFF porque 0x6B42 lo copia con bc=0x0011
+F 0x6B86 17
+D 0x6B97 0x6BA8 texto_disk_offline  "=DISK OFFLINE=" y tres ceros de relleno hasta completar los mismos diecisiete
+F 0x6B97 17
+D 0x6BA8 0x6BBA texto_return_key_retry  "RETURN KEY@@RETRY". Lo pinta 0x6B4F
+F 0x6BA8 18
+D 0x6BBA 0x6BCC texto_space_key_abort  "SPACE KEY @@ABORT". Con el anterior forman las dos salidas del aviso de error: reintentar o dejarlo
+F 0x6BBA 18
+D 0x6CA7 0x6CAF texto_no_file  "NO FILE"
+F 0x6CA7 8
+D 0x6CAF 0x6CBE texto_hit_return_key_2  "HIT RETURN KEY" otra vez, el mismo texto repetido en el binario
+F 0x6CAF 15
+D 0x6D7C 0x6D87 texto_end  "@@END@@" y cuatro ceros: once bytes, los que 0x6D97 copia con bc=0x000B
+F 0x6D7C 11
+D 0x6F79 0x6F89 texto_tape_io_error  "TAPE IO ERROR"
+F 0x6F79 16
+D 0x6F89 0x6F99 texto_sum_check_error  "SUM CHECK ERROR". 0x6F4C elige entre este y el anterior
+F 0x6F89 16
+D 0x6F99 0x6FA8 texto_hit_return_key_3  "HIT RETURN KEY", la tercera copia
+F 0x6F99 15
+D 0x700F 0x7018 texto_file_name  "FILE NAME", nueve bytes exactos: los del bc=0x0009 de 0x6FDA
+F 0x700F 9
+D 0x7159 0x7166 texto_skip_file  "SKIP FILE" y cuatro ceros: trece bytes, los del bc=0x000D de 0x714D
+F 0x7159 13
+D 0x7166 0x7172 texto_search_file_2  "SEARCH FILE", que carga 0x70D2
+F 0x7166 12
+
+D 0x5B02 0x5B42 tabla_de_trucos_por_juego  Veintiuna entradas de tres bytes -numero de catalogo en BCD y la rutina que le toca-, cerradas por un 0xFF, que recorre 0x5582 por encargo de 0x4926. Es la segunda de las dos tablas de juego, y la que importa: aqui hay casi una rutina por cartucho, o sea que es DONDE ESTAN LOS TRUCOS. Dos parejas comparten rutina: RC-700 con RC-716 y RC-710 con RC-711
+F 0x5B02 3
+D 0x6284 0x628C registros_del_vdp  Los ocho primeros registros del VDP, que 0x6273 escribe seguidos empezando por el 0: 0x02 modo grafico 2, 0xE2 pantalla y sprites de 16x16, 0x0E nombres en 0x3800, 0x7F color, 0x07 patrones, 0x76 atributos de sprite en 0x3B00, 0x03 patrones de sprite en 0x1800 y 0xE1 el borde. Son ocho porque ocho dice el ld bc,00800h de 0x6276, cuya B es la cuenta. OJO con el 3 y el 4: no son direcciones sino base y mascara, y salen AL REVES de lo que parece -el color acaba en 0x0000 y los patrones en 0x2000-, que es lo que coloca los cuatro bloques comprimidos del menu
+F 0x6284 8
+D 0x628C 0x6290 cuatro_bytes_sin_dueno  0x0E, 0x00, 0x18 y 0x06, pegados detras de los registros del VDP. El bucle de 0x6279 no llega a ellos -para a los ocho- y nadie mas los carga: buscados los cuatro bytes por todo el cartucho, no hay ni una referencia. Parecen dos registros mas de otra version
+F 0x628C 4
+
+B 0x59A5 EL TEXTO QUE SE MANDA A LA IMPRESORA. Es el mismo formato de rotulos de 0x6294, pero escribiendo en la RAM con `ld (de),a` en vez de en la VRAM: por eso hay dos rutinas casi iguales.
+D 0x59B6 0x5A0C encabezado_del_listado  Las tres lineas que encabezan el ranking impreso: "*** RC-7   SCORE RANKING ***", "Rank.  Name.   Score." y una raya de veintiun guiones. El hueco detras de "RC-7" lo rellena 0x598C con el numero del juego que se ha reconocido. Es el UNICO texto del cartucho con minusculas: todo lo que va a la pantalla esta en mayusculas porque la fuente no tiene otra cosa, y aqui manda la impresora
+F 0x59B6 16
+D 0x731F 0x7357 rotulos_elegir_impresora  SELECT PRINTER / EPSON=PI 40= / MSX PRINTER / END. Lo pinta el jp de 0x731C
+F 0x731F 16
+D 0x736C 0x73B5 rotulos_impresora_no_lista  PRINTER MODE / =NOT READY= / RETURN KEY RETRY / SPACE KEY ABORT. Lo pinta el jp de 0x7369
+F 0x736C 16
+D 0x73BB 0x7402 rotulos_impresora_en_pausa  PRINTER MODE / =PAUSING= / RETURN KEY START / SPACE KEY ABORT. Lo pinta el jp de 0x73B8
+F 0x73BB 16
+D 0x7473 0x7478 escape_i192  ESC "I192", cinco bytes que 0x7464 saca de uno en uno con el ld b,005h de 0x7467. Es una orden de la impresora, no un texto para leer
+F 0x7473 5
+D 0x76BE 0x76DA escapes_de_grafico  Cuatro ordenes de impresora, cada una cerrada por 0xFF: ESC "T16" con su salto de linea, y ESC "S0384", ESC "S0768" y ESC "S0240", que son los tres anchos de volcado grafico. 0x762E elige entre las dos primeras comparando (0xD136) con 0x71
+F 0x76BE 7
+D 0x76E7 0x7707 tramas_de_impresion  Dieciseis palabras que 0x76DB indexa con `add a,a`: los pares de bytes con los que se imprime cada combinacion de puntos. Solo salen cuatro valores -0x00, 0x55, 0xAA y 0xFF-, que son el vacio, las dos medias tramas alternas y el lleno
+F 0x76E7 2
+
+D 0x6561 0x6569 ocho_bytes_de_borrado  Un cero y siete 0x7F, que 0x6549 lleva con bc=0x0008 a un sitio u otro segun (0xD13D)
+F 0x6561 8
+D 0x6676 0x6679 extension_vrm  "VRM", la extension de los ficheros que guarda el cartucho. 0x665F la copia a (0xD109), justo detras de la inicial
+F 0x6676 3
+
+B 0x6849 HACERLE SITIO AL DISCO. El Disk BASIC vive en la pagina 3, justo donde este cartucho tiene su RAM, asi que antes de tocar el disco hay que apartarse: se bajan 0x1100 bytes con LDDR -de atras adelante, porque los dos trozos se solapan- y se intercambia el bloque de trabajo. Todas las rutinas de disco empiezan por aqui y acaban en 0x6860.
+L 0x6849 sitio_para_el_disco
+C 0x684A intercambia el bloque de trabajo con el de 0xC000
+C 0x6856 LDDR y no LDIR: el origen y el destino se pisan
+C 0x685B y la variable de error, a cero
+
+B 0x6860 Y DEVOLVERLE EL SITIO. Trae de vuelta los 0x1100 bytes que estaban aparcados en 0xE280 y deshace el intercambio.
+L 0x6860 sitio_recuperado
+
+B 0x6871 INTERCAMBIAR DOS BLOQUES DE 0x1100 BYTES sin usar memoria de mas: byte a byte, guardando uno en B mientras se escribe el otro. Es lo que permite tener a la vez la RAM del cartucho y la del Disk BASIC en las mismas direcciones.
+L 0x6871 intercambia_bloques
+
+B 0x6987 ESCRIBIR EN EL DISCO. Funcion 0x27 del BDOS -escritura aleatoria-, llamada por 0xF37D, que es la puerta del Disk BASIC. Con error, se sale por 0x69DA con el codigo 3.
+L 0x6987 escribe_en_disco
+B 0x6997 LEER DEL DISCO. La funcion 0x26, la hermana de la de arriba. El codigo de error es el 4.
+L 0x6997 lee_del_disco
+C 0x69B6 antes de cada operacion hay que decirle al BDOS donde esta el buffer: funcion 0x1A
+B 0x660C CARGAR UNA PANTALLA DE DISCO. Las diez rutinas de esta zona siguen todas el mismo guion: guardar la pila en (0xD127), pedir sitio al disco, hacer la operacion, y devolver el sitio. Lo que cambia es la funcion del BDOS y cuantos bytes.
+C 0x660C la pila, aparcada: el BDOS va a usar la suya
+C 0x6620 se copian los 0x82 bytes de la propia pila a 0xC000, que es lo unico que queda a salvo
+C 0x6636 y se leen los 0x82 del fichero
+C 0x6649 el disco ya no hace falta
+
+B 0x63E9 DEVOLVER LA PANTALLA DEL CARTUCHO. Vuelve a poner en la VRAM lo que estaba antes: los patrones, el color, las casillas y el primer atributo de sprite. Solo hace algo si (0xD12A) dice que hay algo que devolver.
+C 0x63EE si no hay nada guardado, no se toca la VRAM
+C 0x63F0 y se marca que ya se devolvio
+C 0x63F4 los patrones, 0x80 bytes por tercio
+C 0x6400 el color, 0x158
+C 0x640C las 256 casillas de la tabla de nombres
+C 0x6418 y un solo byte de atributos: el que esconde los sprites
+C 0x6424 COPIAR A LOS TRES TERCIOS, sumando 0x2000 cada vez
+
+B 0x71EC LEER UN BLOQUE DE LA CINTA. Byte a byte con TAPIN, sumandolos en D, y al final se lee UN BYTE MAS que es la suma de comprobacion y se compara.
+L 0x71EC lee_de_la_cinta
+C 0x71EF TAPIN da un byte de la cinta, o carry si se corta
+C 0x71F5 cortada: error de entrada y salida
+C 0x71F9 se va sumando lo leido
+C 0x7202 y detras del bloque viene la suma
+C 0x7209 si no cuadra, error de suma. Es la unica comprobacion que lleva el formato
+
+B 0x75B6 DE DONDE SALE UN PUNTO DE LA PANTALLA. Traduce una posicion de pantalla a la casilla que hay alli, y de la casilla al punto concreto de su dibujo. Es lo que permite imprimir la pantalla sin tenerla en la RAM: se le pregunta a la VRAM punto por punto.
+C 0x75B9 la direccion de la casilla en la tabla de nombres
+C 0x75BC RDVRM: que casilla hay ahi
+C 0x75C2 por ocho, que es lo que ocupa cada dibujo
+C 0x75CA mas la fila dentro de la casilla
+C 0x75D8 y el tercio de pantalla, que en SCREEN 2 tiene su propio juego de dibujos
+
+B 0x7798 LO MISMO CON LOS EJES CAMBIADOS. Divide entre ocho la columna y la fila -tres desplazamientos a la derecha- y compone la direccion, sumandole 0xD9B1, que es donde esta la copia de la pantalla en RAM.
+C 0x77A8 multiplica por el ancho
+C 0x77B6 y la base de la copia en RAM
+C 0x77BB MULTIPLICAR POR EL ANCHO, ocho vueltas de sumas y desplazamientos
+
+B 0x6BFD ELEGIR FICHERO DE LA LISTA. Las flechas mueven por los nombres que se leyeron del directorio y ESPACIO se queda con uno.
+C 0x6C06 flecha arriba
+C 0x6C0A flecha abajo
+C 0x6C0E y ESPACIO elige
+C 0x6C18 no se puede elegir mas alla de los que hay
+C 0x6C30 ocho caracteres de nombre, u once si hace falta la extension
+
+B 0x6889 MONTAR EL NOMBRE DEL FICHERO. Lo deja en 0xD100 con el formato que pide el BDOS: ocho caracteres de nombre, tres de extension y el resto del bloque de control a cero. El nombre no lo teclea entero el usuario: la primera letra la pone el cartucho segun el dato, y la extension es siempre VRM.
+L 0x6889 monta_el_nombre
+C 0x689A rellena de espacios los ocho del nombre
+C 0x68A3 y de ceros los 0x1B siguientes, que es el resto del bloque de control
+C 0x68B0 lo que haya tecleado el usuario
+C 0x68BB y delante, la inicial y la extension
+C 0x68D0 la inicial: H, S, G o R segun el dato
+C 0x68D2 y detras, el numero de catalogo del juego, para que dos juegos no se pisen los ficheros
+
+B 0x54D1 EL PORTERO DE LOS TRUCOS. Mira uno a uno los bits de (0xD317) -que son lo que el usuario pidio en el MODIFY MODE- y llama a la parte que toque; luego decide si ademas hay que meterse con la fase.
+C 0x54D5 bit 0: lo del MODIFY PLAYER NUMBER
+C 0x54DA bit 1: lo del MODIFY STAGE NUMBER
+C 0x54DF bit 2: el tercero
+C 0x54E5 los cinco bits de arriba se guardan aparte
+C 0x54E8 ¿esta el juego en marcha de verdad?
+C 0x54F0 RC-715 Hyper Sports 1 se salta esta parte
+C 0x54F7 y un contador que deja pasar una de cada dos: sin esto el truco se aplicaria dos veces en el mismo cambio de fase
+
+B 0x5629 ¿ESTA EL JUEGO JUGANDOSE? Distingue "partida en curso" de "pantalla de titulo o demostracion", que es donde no hay que tocar nada. Cada familia de juegos lo dice de una forma, y por eso hay tres caminos.
+L 0x5629 hay_partida
+C 0x5629 sin los dos punteros de la cabecera no se puede saber, asi que se dice que no
+C 0x5639 RC-703 y RC-704 -Time Pilot y Frogger- lo dicen con el bit 0, y AL REVES: por eso el `cpl`
+C 0x5640 RC-710 y RC-711 -los Hyper Olympic-, igual
+C 0x564B y los demas, con el bit 5
+
+B 0x5592 PEDIR EL NOMBRE DEL JUGADOR PARA EL RANKING. Primero el del jugador 1 y, si el juego es de dos, el del 2.
+C 0x5599 borra la zona de la pantalla donde va a escribir
+C 0x559C "RANKING / INPUT 1P NAME"
+C 0x55A8 y espera a que teclee
+C 0x55AD lo tecleado, a su sitio
+C 0x55BE el "1" que marca de quien es
+C 0x55C6 y ahora el segundo jugador
+C 0x55C9 si el juego no es de dos, aqui se acaba
+C 0x55CB "INPUT 2P NAME"
+C 0x55F3 y el "2"
+
+B 0x4A96 BORRAR LA TABLA DE RECORDS. Deja las puntuaciones a cero y los nombres a 0x3C, y luego le pone al primero el nombre de la casa.
+C 0x4A9C las puntuaciones, a cero
+C 0x4AA9 los nombres, a 0x3C
+C 0x4AB3 y encima, "KONAMI": el ranking recien borrado sale con la casa en cabeza
+
+B 0x5063 MONTAR LA PANTALLA DEL CARTUCHO. Rellena dos tiras de patrones a mano, suelta el bloque comprimido y coloca las casillas.
+C 0x5069 una tira de 0x3F
+C 0x5074 y otra de 0xFC, las dos por los tres tercios
+C 0x507F y el bloque comprimido, tambien por los tres
+
+B 0x58BE UNA LINEA DEL RANKING EN PANTALLA. El puesto, el nombre y la puntuacion, separados por las casillas 0x3B y 0x3E.
+C 0x58BF el separador de delante
+C 0x58CE los ocho caracteres del nombre
+C 0x58D4 y los tres bytes del marcador, de mayor a menor
+C 0x58EB y el separador del final
+
+B 0x54FD APLICAR LOS TRUCOS PEDIDOS. La llama el gancho de interrupcion cuando ve que el juego acaba de cambiar de fase. (0xD317) trae los bits de lo que se ha pedido, y el bit 7 es el que dispara todo.
+C 0x5500 se guardan las banderas
+C 0x5501 sin el bit 7 no hay nada que hacer
+C 0x5504 y se apaga, para que no se repita
+C 0x5508 sube el interruptor: mientras se toca al juego, el gancho no debe entrar otra vez
+C 0x550B quince bytes a 0x3C
+C 0x5518 y otros cinco a cero
+C 0x5525 calla el sonido mientras dura la maniobra
+C 0x552B y a buscar la rutina del juego en su tabla
+
+B 0x5A4E UNA LINEA DEL RANKING IMPRESO. Junta el puesto, el nombre y la puntuacion, y le quita los ceros de delante al numero para que no salga "000450".
+C 0x5A56 los tres bytes del marcador, del mas alto al mas bajo
+C 0x5A70 el 0x3D es el "=" que separa
+C 0x5A7D RC-729 Pippols cuenta con un digito menos, y por eso se le corre el principio
+C 0x5A85 mientras salgan ceros, se van saltando
+C 0x5A8D salvo que sea el ultimo: un marcador a cero tiene que salir como "0", no como nada
+
+B 0x7655 VOLCAR LA PANTALLA A LA IMPRESORA. Este es el trabajo gordo del modo PRINTER: leer la VRAM y convertirla en columnas de puntos. La impresora imprime en vertical -ocho puntos por golpe de cabezal-, asi que hay que girar lo que se lee.
+C 0x7656 saca las casillas de una fila
+C 0x7659 y las convierte a los bytes de puntos, que salen en DE
+C 0x765E la mascara de este par de bits
+C 0x765F se van juntando sobre lo que ya habia
+C 0x766D y la mascara se corre dos bits: cada casilla aporta dos
+C 0x7671 la posicion en la VRAM avanza una fila entera
+C 0x767D y los dos bytes montados se le mandan a la impresora
+C 0x7690 al acabar la banda, salto de linea
+C 0x7695 y cuatro filas mas abajo
+C 0x769A y al final del todo, el cierre
+C 0x7731 LA OTRA FORMA DE VOLCAR, la misma cuenta con otro lector
+C 0x7732 el lector, que aqui saca de la copia en RAM y no de la VRAM
+C 0x7737 la mascara del par de bits que toca
+C 0x7746 y se corre dos, igual que en la otra
+C 0x7753 los dos bytes montados, a la impresora
+C 0x7760 salto de linea al acabar la banda
+C 0x776A y el cierre al final
+
+C 0x7799 la columna: dividida entre ocho con tres desplazamientos
+C 0x77A0 y la anchura de la hoja, tambien entre ocho
+C 0x77AC la fila, igual
+
+C 0x6B39 el mensaje de error, diecisiete bytes, una fila mas abajo
+C 0x6B4A y otra fila
+C 0x6B4F "RETURN KEY RETRY"
+C 0x6B57 media fila mas
+C 0x6B5B y "SPACE KEY ABORT"
+C 0x6B62 se vacia el buffer del teclado, que si no se cuela la tecla que causo el error
+
+C 0x47BC LOAD SCREEN DATA: espera a que haya unidad de disco
+C 0x47C3 codigo 0x21, o sea cargar de disco la pantalla
+C 0x47C9 elige el fichero
+C 0x47D2 monta la llamada entre ranuras
+C 0x47D8 y lo carga
+C 0x47E0 marca que hay pantalla cargada
+C 0x47E8 la linea 6 del teclado
+C 0x47F3 y con esas teclas, ademas, se imprime
+
+C 0x66A8 GUARDAR LA PANTALLA Y LA PILA. Es la unica que ademas salva 0x80 bytes de la pila del juego
+C 0x66B8 0x1100 bytes de trabajo
+C 0x66C1 al disco
+C 0x66C7 y la pila se recupera de 0xC000, donde 0x6620 la habia dejado
+C 0x66DA calla el PSG y guarda los volumenes: al volver, el juego sigue como estaba
+
+C 0x5A9D copia el nombre
+C 0x5AA3 y si la puntuacion es de las cortas, le pone un "0" delante
+C 0x5AAB pega el "PT" detras de la puntuacion
+
+C 0x592D el "PT" detras de la puntuacion, en pantalla esta vez
+C 0x5937 nueve bytes por puesto de la tabla
+C 0x593C y tres del marcador
+C 0x5942 una fila de pantalla mas abajo
+C 0x5948 hasta acabar los puestos
+
+B 0x57E8 TECLEAR UN NOMBRE. No se escribe con el teclado: se elige LETRA A LETRA con las flechas, como en los recreativos. El tope 0xC0 marca que aqui el cursor se mueve por caracteres y no por lineas.
+C 0x57EF borra el recuadro donde se va a escribir
+C 0x57FF el sitio donde se escribe
+C 0x5808 el tope, 0xC0
+C 0x580B y el cursor, puesto
+C 0x582C nueve caracteres como mucho
+C 0x5834 y a partir de cinco, la lista de letras se desplaza en vez de seguir bajando
+
+B 0x62D0 COPIAR A LOS TRES TERCIOS. Suma 0x800 al destino en cada vuelta, que es lo que separa los tercios de SCREEN 2. Casi todo lo que este cartucho pinta pasa por aqui.
+L 0x62D0 a_los_tres_tercios
+
+B 0x64F3 UNA LETRA MAS EN LO QUE SE ESCRIBE. Avanza el cursor y, la primera vez, borra los catorce caracteres de la linea para que no quede lo de antes.
+C 0x64FA con el tope alcanzado no se admite mas
+C 0x650C catorce caracteres borrados, solo al escribir el primero
+
+B 0x691B PREPARAR EL BLOQUE DE CONTROL DEL FICHERO. Rellena los campos que el BDOS mira: el tamano de registro a 1 y los cinco del final a cero.
+C 0x6922 los dos bytes de extension, a cero
+C 0x6929 tamano de registro: uno
+C 0x6930 y los cinco ultimos, a cero
+
+B 0x6C3B BAJAR EN LA LISTA DE FICHEROS. Igual que la de teclear nombres: a partir de tres, la lista se desplaza en vez de bajar el cursor.
+C 0x6C3E si ya esta en el ultimo, no se mueve
+C 0x6C46 y de tres en adelante, se desplaza la lista
+
+B 0x6ED4 GUARDAR EN CINTA. El mismo guion que el disco: cabecera, bloques y la pila del juego aparte.
+C 0x6ED8 la cabecera del fichero
+C 0x6EEA los 0x82 bytes que llevan la pila
+C 0x6EF0 y se recupera la pila de donde se guardo
+
+B 0x7612 UNA POSICION DE PANTALLA A DIRECCION DE VRAM. Nueve desplazamientos a la derecha encadenados entre H y L: es una division entre ocho de un valor de dieciseis bits, hecha a mano porque el Z80 no divide.
+L 0x7612 posicion_a_vram
+C 0x5AB4 nueve bytes por fila de la tabla
+C 0x5AB9 y tres del marcador
+C 0x5ABF la anchura de la hoja, entre ocho
+C 0x5ACC hasta acabar los puestos
+
+C 0x52A5 la linea elegida
+C 0x52A6 su rotulo, de la tabla de tres punteros
+C 0x52B5 y el tamano del rectangulo, 3x4
+C 0x52BF el contador de vueltas: su bit 0 alterna los dos juegos de sprites, y por eso el adorno del menu se mueve
+
+C 0x7440 IMPRIMIR UNA COLUMNA DE PUNTOS, de abajo arriba: el cabezal de la impresora va al reves que la pantalla
+C 0x7443 la posicion, que baja de una en una
+C 0x7446 se lee el punto de la pantalla
+C 0x7449 y se manda
+C 0x7453 columna siguiente
+C 0x7457 acabada la banda, retorno de carro...
+C 0x745C ...y salto de linea
+
+B 0x756A UN PUNTO DE LA PANTALLA, SI O NO. Con la casilla ya localizada, saca el bit que toca y ademas mira el color: un punto solo se imprime si su tinta se distingue del fondo.
+C 0x756D localiza la casilla
+C 0x7572 y por si la pantalla esta desplazada, la corrige
+C 0x7580 RDVRM: el byte del dibujo
+C 0x7585 y se van sacando bits por arriba
+
+B 0x7595 CORREGIR EL DESPLAZAMIENTO DE LA PANTALLA. Resta el desplazamiento y, si se sale por arriba, da la vuelta ocho filas abajo y dieciseis columnas a la derecha.
+L 0x7595 corrige_el_desplazamiento
+
+B 0x69DA EL AVISO DE ERROR DE DISCO. Se le devuelve el sitio al cartucho, se repinta el marco y se saca el mensaje que toque segun el codigo que haya dejado el BDOS.
+C 0x69DB lo primero, recuperar la RAM propia
+C 0x69EA "@@DISK ERROR@@" de titulo
+C 0x69FC y debajo, el error concreto
+C 0x6A02 la pila que 0x6849 habia guardado, y se sale con carry
+
+B 0x6A17 EL MENSAJE DEL ERROR CONCRETO. C trae el codigo, la tabla de 0x6A4E da el texto, y debajo va siempre "HIT RETURN KEY".
+C 0x6A18 el codigo por dos, que son punteros
+C 0x6A2C y el pie, siempre el mismo
+C 0x6A33 vacia el buffer del teclado
+C 0x6A36 y espera a que pulsen
+
+B 0x4BD0 EL PATRON DE PRUEBA DE COLOR. Copia la tira de 32 bytes a ocho filas de la VRAM y luego escribe "KONAMI" encima. Es la pantalla con la que se comprueba que el monitor saca bien los dieciseis colores.
+C 0x4BD8 la misma tira de 32 bytes, ocho veces
+C 0x4BDF una fila mas abajo cada vez
+C 0x4BEC pinta el marco
+C 0x4BEF y el rotulo
+
+B 0x57C2 GUARDAR UN NOMBRE EN LA TABLA DE RECORDS. Cada puesto ocupa nueve bytes, y por eso el indice se multiplica por nueve: por tres y otra vez por tres.
+C 0x57C7 por tres
+C 0x57CA y otra vez por tres: nueve bytes por puesto
+C 0x57D6 el 0x32 es el "2": el segundo jugador guarda en otro sitio
+
+B 0x4501 EL "RC 7xx" DEL JUEGO RECONOCIDO. Sale en todas las pantallas del cartucho para que se vea cual se ha detectado.
+C 0x4505 sin juego reconocido no se pinta nada
+C 0x4506 el "RC 7" fijo
+C 0x4513 y detras, el numero en decimal
+C 0x451F que son sus dos cifras
+
+B 0x4B04 PREPARAR UNA PANTALLA DE TECLEAR. Deja el marco, el encabezado con la operacion y el dato, y coloca el cursor. El tope se pone a 0x80 para que el cursor se pueda mover por toda la linea y no por un menu.
+C 0x4B0D el nombre de la operacion
+C 0x4B10 y el del dato
+C 0x4B16 la llamada entre ranuras, por si hay que leerle al juego
+C 0x4B23 donde va el cursor
+C 0x4B2B y el tope, de 0x80: aqui no se elige entre lineas, se escribe
+C 0x774D aqui la posicion avanza de uno en uno, no de fila en fila
+
+D 0x68DA 0x68DE iniciales_del_dato  H, S, G y R: la inicial con la que empieza el nombre del fichero segun el dato -HI SCORE, SCREEN, GAME y RANKING-. 0x68C5 la elige con el nibble bajo de (0xD136) y la mete en (0xD109) con un `ldi`, y detras va la extension VRM
+F 0x68DA 4
+
+B 0x6445 CODIGO AL QUE NO LLEGA NADIE. Cuatro trozos que desensamblan a Z80 correcto y encajado -empiezan justo detras de un `ret` y acaban justo donde arranca una etiqueta que si se usa-, pero a los que no apunta nada: buscadas sus direcciones por los 16384 bytes del cartucho, no aparece ni una referencia de 16 bits ni un salto relativo que caiga en ellos. No es el espejismo de leer un operando como opcode, porque no caen dentro de otra instruccion; son restos de una compilacion anterior. De este cartucho hay tres.
+D 0x6445 0x644F codigo_muerto_1  `ld a,(0D16Dh) / cp 03Ah / ld hl,03900h / jr c,...`: elegia una direccion de la tabla de nombres segun una variable
+F 0x6445 10
+D 0x6787 0x67A3 codigo_muerto_2  Dos copias casi iguales de `ld de,0C000h / ld c,01Ah / call 0F37Dh / ld hl,01000h / jp ...`, o sea dos llamadas al BDOS del disco que acaban saltando a 0x6997 y a 0x6987, que si son codigo vivo
+F 0x6787 14
+D 0x6904 0x691B codigo_muerto_3  Guardaba DE en (0xD125) y borraba un bloque; su ultima instruccion, `ld (0D125h),hl`, encadena con 0x691B, que si se llama desde ocho sitios
+F 0x6904 12
+D 0x6938 0x694A codigo_muerto_4  Leia por (0xD125) mas 0x10 y devolvia lo que hubiera alli; acaba en un `jr` que cae dentro de codigo vivo
+F 0x6938 12
+D 0x5022 0x5024 entrada_muerta_1  `ld b,001h`. Dos bytes puestos para poder entrar a la rutina de al lado con B a uno, a los que no salta nadie
+F 0x5022 2
+D 0x6FB5 0x6FB7 entrada_muerta_2  `ld b,005h`, el mismo caso: 0x6FB1 entra con B a quince y se los salta con el `jr $+4` de 0x6FB3, y la puerta de los cinco no la usa nadie
+F 0x6FB5 2
+
+D 0x7FEA 0x8000 marca_oculta_de_konami  Los ultimos veintidos bytes del cartucho: "RC-735" y, en katakana, 10バイタノシムカートリッジ -"el cartucho para disfrutar diez veces mas"-, que era el eslogan. La descubrio Manuel Pazos. Aqui, ademas, sirvio para confirmar que el 0xBA es el alargamiento ー, que estaba sin cerrar
+F 0x7FEA 11
+
+B 0x6AAA MONTAR LA LLAMADA ENTRE RANURAS. Copia la plantilla de 0x6AD0 a la RAM y le rellena la ranura y la direccion que llega en HL.
+D 0x6AD0 0x6ADD plantilla_de_llamada  push iy / push ix / rst 30h / tres ceros / pop ix / pop iy / ret. Los tres ceros los rellena 0x6AC3 en 0xD343
+F 0x6AD0 13
