@@ -244,7 +244,15 @@ class TestLaSegundaCabecera(unittest.TestCase):
         self.assertEqual(0x605A - 0x6047, 0x13)
 
     def test_cotejo_con_los_juegos_que_si_la_llevan(self):
-        """De la coleccion, solo cinco ROM traen segunda cabecera."""
+        """De la coleccion, SIETE ROM traen segunda cabecera.
+
+        Y el marcador no va por numero de catalogo sino por ANO: los tres
+        de 1985 (RC-732 Soccer y Football, RC-736 Boxing y RC-737 Yie Ar
+        Kung-Fu II) la abren con "AB", y los cuatro de 1986-87 (RC-734
+        Goonies, RC-739 Knightmare, RC-742 Nemesis y RC-752 F-1 Spirit) con
+        "CD". Que RC-734 sea de 1986 y RC-736 y RC-737 de 1985 es lo que
+        descarta el numero como criterio.
+        """
         ficheros = roms_de_juegos()
         if not ficheros:
             self.skipTest("no hay ROM de juegos en esta maquina")
@@ -259,10 +267,11 @@ class TestLaSegundaCabecera(unittest.TestCase):
                                                g[0x12] * 100 + (g[0x13] >> 4) * 10
                                                + (g[0x13] & 15))
         rcs = sorted(set(v[1] for v in vistas.values()))
-        self.assertEqual(rcs, [732, 734, 742, 752])
-        # Soccer y Football usan el formato viejo; los tres de 1986-87, el nuevo.
+        self.assertEqual(rcs, [732, 734, 736, 737, 739, 742, 752])
+        # Los de 1985 usan el formato viejo; los de 1986-87, el nuevo.
+        DEL_85 = (732, 736, 737)
         for nombre, (marca, rc) in vistas.items():
-            self.assertEqual(marca, b"AB" if rc == 732 else b"CD", nombre)
+            self.assertEqual(marca, b"AB" if rc in DEL_85 else b"CD", nombre)
 
 
 class TestTablaDeApanos(unittest.TestCase):

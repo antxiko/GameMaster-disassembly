@@ -13,9 +13,17 @@ Game Master itself.
 
 ## The second header, seen from the other side
 
-Four disassemblies in this series have a second header at `0x4010` that did
-nothing visible: Soccer and Football with `AB`, and Goonies, Nemesis and F-1
-Spirit with `CD`. We knew it was there; not what for.
+**Seven** of the ROMs here carry a second header at `0x4010` that did nothing
+visible, and five of them are disassembled in this series. The marker in front
+does not follow the catalogue number, it follows the **year**:
+
+| marker | year | cartridges |
+|---|---|---|
+| `AB` | 1985 | Konami's Soccer and Football (RC-732), Konami's Boxing (RC-736), Yie Ar Kung-Fu II (RC-737) |
+| `CD` | 1986-87 | The Goonies (RC-734), Knightmare (RC-739), Nemesis (RC-742), F-1 Spirit (RC-752) |
+
+RC-734 is from 1986 while RC-736 and RC-737 are from 1985, which is what rules
+the number out as the criterion. We knew the header was there; not what for.
 
 This is what for. **The Game Master reads it.** The 17 bytes at
 `0x4014`–`0x4024` are pointers to the game's variables in its RAM: where it
