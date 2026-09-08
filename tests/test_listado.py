@@ -183,7 +183,7 @@ class TestElParcheDelGancho(unittest.TestCase):
         ficheros = roms_de_juegos()
         if not ficheros:
             self.skipTest("no hay ROM de juegos en esta maquina")
-        con = sin = 0
+        con, faltan = 0, []
         for f in ficheros:
             with open(f, "rb") as fh:
                 g = fh.read()
@@ -199,11 +199,16 @@ class TestElParcheDelGancho(unittest.TestCase):
             if g[o:o + 256].find(b"\x9b\xfd") >= 0:
                 con += 1
             else:
-                sin += 1
-        # Medido sobre esta coleccion: 40 la llevan y 2 no -Casio World Open,
-        # que no es de Konami, y el propio Game Master.
+                faltan.append(os.path.basename(f))
+        # Las que NO la llevan se comprueban por NOMBRE y no por cuenta: un
+        # numero se queda corto en cuanto entra una ROM nueva en la coleccion,
+        # y eso ya paso al anadir Bomber Man. Las tres tienen explicacion: dos
+        # no son de Konami y la tercera es el propio Game Master.
         self.assertGreaterEqual(con, 40)
-        self.assertLessEqual(sin, 2)
+        for nombre in faltan:
+            self.assertTrue(
+                any(x in nombre for x in ("Casio", "Bomber Man", "Game Master")),
+                "%s no lleva el gancho y no es una de las conocidas" % nombre)
 
     def test_el_game_master_no_se_parchea_a_si_mismo(self):
         init = self.d[2] | (self.d[3] << 8)
@@ -244,12 +249,12 @@ class TestLaSegundaCabecera(unittest.TestCase):
         self.assertEqual(0x605A - 0x6047, 0x13)
 
     def test_cotejo_con_los_juegos_que_si_la_llevan(self):
-        """De la coleccion, SIETE ROM traen segunda cabecera.
+        """De la coleccion, OCHO juegos traen segunda cabecera.
 
-        Y el marcador no va por numero de catalogo sino por ANO: los tres
-        de 1985 (RC-732 Soccer y Football, RC-736 Boxing y RC-737 Yie Ar
-        Kung-Fu II) la abren con "AB", y los cuatro de 1986-87 (RC-734
-        Goonies, RC-739 Knightmare, RC-742 Nemesis y RC-752 F-1 Spirit) con
+        Y el marcador no va por numero de catalogo sino por ANO: los de 1985
+        (RC-732 Soccer y Football, RC-736 Boxing y RC-737 Yie Ar Kung-Fu II)
+        la abren con "AB", y los de 1986-87 (RC-734 Goonies, RC-739
+        Knightmare, RC-740 Twin Bee, RC-742 Nemesis y RC-752 F-1 Spirit) con
         "CD". Que RC-734 sea de 1986 y RC-736 y RC-737 de 1985 es lo que
         descarta el numero como criterio.
         """
@@ -267,7 +272,7 @@ class TestLaSegundaCabecera(unittest.TestCase):
                                                g[0x12] * 100 + (g[0x13] >> 4) * 10
                                                + (g[0x13] & 15))
         rcs = sorted(set(v[1] for v in vistas.values()))
-        self.assertEqual(rcs, [732, 734, 736, 737, 739, 742, 752])
+        self.assertEqual(rcs, [732, 734, 736, 737, 739, 740, 742, 752])
         # Los de 1985 usan el formato viejo; los de 1986-87, el nuevo.
         DEL_85 = (732, 736, 737)
         for nombre, (marca, rc) in vistas.items():

@@ -13,14 +13,14 @@ Konami— y el propio Game Master.
 
 ## La segunda cabecera, vista desde el otro lado
 
-**Siete** de las ROM que hay aquí llevan en `0x4010` una segunda cabecera que
-no hacía nada visible, y cinco de ellas están desensambladas en esta serie. El
+**Ocho** de los juegos que hay aquí llevan en `0x4010` una segunda cabecera que
+no hacía nada visible, y todos ellos están desensamblados en esta serie. El
 marcador de delante no va por número de catálogo, va por **año**:
 
 | marcador | año | cartuchos |
 |---|---|---|
 | `AB` | 1985 | Konami's Soccer y Football (RC-732), Konami's Boxing (RC-736), Yie Ar Kung-Fu II (RC-737) |
-| `CD` | 1986-87 | The Goonies (RC-734), Knightmare (RC-739), Nemesis (RC-742), F-1 Spirit (RC-752) |
+| `CD` | 1986-87 | The Goonies (RC-734), Knightmare (RC-739), Twin Bee (RC-740), Nemesis (RC-742), F-1 Spirit (RC-752) |
 
 RC-734 es de 1986 y RC-736 y RC-737 de 1985, que es lo que descarta el número
 como criterio. Se sabía que la cabecera estaba; no para qué.

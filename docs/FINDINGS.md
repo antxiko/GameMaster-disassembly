@@ -13,14 +13,14 @@ Game Master itself.
 
 ## The second header, seen from the other side
 
-**Seven** of the ROMs here carry a second header at `0x4010` that did nothing
-visible, and five of them are disassembled in this series. The marker in front
-does not follow the catalogue number, it follows the **year**:
+**Eight** of the games here carry a second header at `0x4010` that did nothing
+visible, and every one of them is disassembled in this series. The marker in
+front does not follow the catalogue number, it follows the **year**:
 
 | marker | year | cartridges |
 |---|---|---|
 | `AB` | 1985 | Konami's Soccer and Football (RC-732), Konami's Boxing (RC-736), Yie Ar Kung-Fu II (RC-737) |
-| `CD` | 1986-87 | The Goonies (RC-734), Knightmare (RC-739), Nemesis (RC-742), F-1 Spirit (RC-752) |
+| `CD` | 1986-87 | The Goonies (RC-734), Knightmare (RC-739), Twin Bee (RC-740), Nemesis (RC-742), F-1 Spirit (RC-752) |
 
 RC-734 is from 1986 while RC-736 and RC-737 are from 1985, which is what rules
 the number out as the criterion. We knew the header was there; not what for.
