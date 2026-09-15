@@ -200,15 +200,20 @@ class TestElParcheDelGancho(unittest.TestCase):
                 con += 1
             else:
                 faltan.append(os.path.basename(f))
-        # Las que NO la llevan se comprueban por NOMBRE y no por cuenta: un
-        # numero se queda corto en cuanto entra una ROM nueva en la coleccion,
-        # y eso ya paso al anadir Bomber Man. Las tres tienen explicacion: dos
-        # no son de Konami y la tercera es el propio Game Master.
+        # Las que NO la llevan se comprueban por CASA, no por cuenta ni por una
+        # lista de nombres: las dos cosas se quedan cortas en cuanto entra una
+        # ROM nueva en la coleccion, y ya paso dos veces -al anadir Bomber Man
+        # primero y una ROM de HAL despues-. La regla que de verdad se sostiene
+        # es esta: si el cartucho es de Konami lleva el gancho, y la unica
+        # excepcion es el propio Game Master, que no se parchea a si mismo.
+        # (La casa se lee del nombre del fichero, que es como viene catalogada
+        # la coleccion; el repositorio no distribuye ninguna ROM.)
         self.assertGreaterEqual(con, 40)
         for nombre in faltan:
             self.assertTrue(
-                any(x in nombre for x in ("Casio", "Bomber Man", "Game Master")),
-                "%s no lleva el gancho y no es una de las conocidas" % nombre)
+                "Konami" not in nombre or "Game Master" in nombre,
+                "%s es de Konami, no es el Game Master y no lleva el gancho"
+                % nombre)
 
     def test_el_game_master_no_se_parchea_a_si_mismo(self):
         init = self.d[2] | (self.d[3] << 8)
@@ -249,14 +254,16 @@ class TestLaSegundaCabecera(unittest.TestCase):
         self.assertEqual(0x605A - 0x6047, 0x13)
 
     def test_cotejo_con_los_juegos_que_si_la_llevan(self):
-        """De la coleccion, OCHO juegos traen segunda cabecera.
+        """De la coleccion, NUEVE numeros de catalogo traen segunda cabecera.
 
         Y el marcador no va por numero de catalogo sino por ANO: los de 1985
-        (RC-732 Soccer y Football, RC-736 Boxing y RC-737 Yie Ar Kung-Fu II)
-        la abren con "AB", y los de 1986-87 (RC-734 Goonies, RC-739
-        Knightmare, RC-740 Twin Bee, RC-742 Nemesis y RC-752 F-1 Spirit) con
-        "CD". Que RC-734 sea de 1986 y RC-736 y RC-737 de 1985 es lo que
-        descarta el numero como criterio.
+        (RC-732 -que sale en dos cartuchos, el mismo binario con otro rotulo-,
+        RC-736 y RC-737) la abren con "AB", y los de 1986-87 (RC-734, RC-739,
+        RC-740, RC-742, RC-743 y RC-752) con "CD". Que RC-734 sea de 1986 y
+        RC-736 y RC-737 de 1985 es lo que descarta el numero como criterio.
+
+        El RC-743 entro al ampliar la coleccion y encaja con la regla del ano
+        sin tocarla: es de 1986 y abre con "CD".
         """
         ficheros = roms_de_juegos()
         if not ficheros:
@@ -272,7 +279,7 @@ class TestLaSegundaCabecera(unittest.TestCase):
                                                g[0x12] * 100 + (g[0x13] >> 4) * 10
                                                + (g[0x13] & 15))
         rcs = sorted(set(v[1] for v in vistas.values()))
-        self.assertEqual(rcs, [732, 734, 736, 737, 739, 740, 742, 752])
+        self.assertEqual(rcs, [732, 734, 736, 737, 739, 740, 742, 743, 752])
         # Los de 1985 usan el formato viejo; los de 1986-87, el nuevo.
         DEL_85 = (732, 736, 737)
         for nombre, (marca, rc) in vistas.items():
