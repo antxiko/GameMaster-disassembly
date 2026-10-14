@@ -20,6 +20,9 @@ RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ROM = os.path.join(RAIZ, "gamemaster.rom")
 ORG = 0x4000
 
+# Los cartuchos de MSX2 de Konami de la coleccion, por numero de catalogo.
+MSX2_DE_KONAMI = (744, 745, 747, 748, 750, 753)
+
 # Donde estan las ROM de los juegos en esta maquina. Ninguna se distribuye.
 COLECCIONES = [
     os.path.join(RAIZ, "..", "ROMS"),
@@ -208,11 +211,18 @@ class TestElParcheDelGancho(unittest.TestCase):
         # excepcion es el propio Game Master, que no se parchea a si mismo.
         # (La casa se lee del nombre del fichero, que es como viene catalogada
         # la coleccion; el repositorio no distribuye ninguna ROM.)
+        # 2026-10-14: con 73 ROM la regla se afino. Tampoco lo llevan los
+        # cartuchos de MSX2 de Konami (Vampire Killer RC-744, King Kong 2
+        # RC-745, Hinotori RC-747, Ganbare Goemon RC-748, Metal Gear RC-750,
+        # The Treasure of Usas RC-753): el Game Master es de MSX1 y su gancho
+        # es el de los cartuchos de MSX1, MegaROM incluidos.
         self.assertGreaterEqual(con, 40)
         for nombre in faltan:
+            rc = re.search(r"RC-(\d+)", nombre)
             self.assertTrue(
-                "Konami" not in nombre or "Game Master" in nombre,
-                "%s es de Konami, no es el Game Master y no lleva el gancho"
+                "Konami" not in nombre or "Game Master" in nombre
+                or (rc and int(rc.group(1)) in MSX2_DE_KONAMI),
+                "%s es de Konami, de MSX1, no es el Game Master y no lleva el gancho"
                 % nombre)
 
     def test_el_game_master_no_se_parchea_a_si_mismo(self):
@@ -279,7 +289,10 @@ class TestLaSegundaCabecera(unittest.TestCase):
                                                g[0x12] * 100 + (g[0x13] >> 4) * 10
                                                + (g[0x13] & 15))
         rcs = sorted(set(v[1] for v in vistas.values()))
-        self.assertEqual(rcs, [732, 734, 736, 737, 739, 740, 742, 743, 752])
+        # 2026-10-14: con 73 ROM son 16 numeros (entran 745, 746, 748-751 y
+        # 753) y la regla del ano se sigue cumpliendo. Lo que se exige: que
+        # esten los nueve de antes y que el marcador vaya por ano en TODOS.
+        self.assertTrue(set([732, 734, 736, 737, 739, 740, 742, 743, 752]) <= set(rcs), rcs)
         # Los de 1985 usan el formato viejo; los de 1986-87, el nuevo.
         DEL_85 = (732, 736, 737)
         for nombre, (marca, rc) in vistas.items():
