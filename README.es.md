@@ -30,8 +30,9 @@ juego de Konami instala su rutina de interrupción—. La cambia por cinco bytes
 con lo que el gancho del juego queda guardado y el control pasa al Game Master,
 y ejecuta la copia parcheada.
 
-Comprobado sobre las 42 ROM de cartucho de la colección: **las 40 de Konami
-llevan esa instrucción**.
+Comprobado sobre las 67 ROM de cartucho de la colección: **53 de las 60 de
+Konami llevan esa instrucción**; las siete que no son los seis cartuchos de MSX2
+y la versión europea del propio Game Master.
 
 ## Reproducirlo
 

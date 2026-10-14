@@ -29,10 +29,11 @@ This is the central idea, and it lives at `0x4C76`.
 So it does not patch the game: it patches the **RAM copy of its start-up**. From
 then on it runs once per frame inside the game and can poke its variables.
 
-It works across the whole catalogue because every Konami cartridge starts the
-same way. Checked over the 42 cartridge ROMs in the collection: **all 40 Konami
-ones carry that instruction** in the 256 bytes of their INIT. The only two that
-do not are Casio World Open — not a Konami title — and the Game Master itself.
+It works across Konami's MSX1 catalogue because all those cartridges start the
+same way. Checked over the 67 cartridge ROMs in the collection: of the 60 by
+Konami, **53 carry that instruction** in the 256 bytes of their INIT. The seven
+that do not are the six MSX2 cartridges (Vampire Killer, King Kong 2, Hinotori, Ganbare Goemon, Metal Gear and The Treasure of Usas) and the European version of the
+Game Master itself.
 
 ## How it knows which game is next to it
 
@@ -42,8 +43,9 @@ Two routes, and the order matters (`0x5E64`):
 compares them with `AB` and `CD`. If it is `AB` it takes 19 bytes as they come;
 if `CD`, 21, and it distributes them according to a **flag byte**: each `rra`
 pulls out one bit saying whether the next field is present, and any field that
-is missing keeps the default from `0x6034`. Only five of the 42 ROMs in the
-collection carry that header.
+is missing keeps the default from `0x6034`. Of the 67 cartridge ROMs in the
+collection, 17 carry that header: 16 games (Soccer and Football are the same
+binary under another label).
 
 **2. The signature table.** For everything else — which is most of the
 catalogue — `0x5EF5` **adds up the 256 bytes from `0x5000` to `0x50FF`** of the

@@ -1,26 +1,27 @@
 # Hallazgos
 
-## La instrucción que llevan los 40 cartuchos de Konami
+## La instrucción que llevan los cartuchos de MSX1 de Konami
 
 El Game Master se cuela en el juego buscando `9B FD` en los 256 primeros bytes
 de su arranque: el operando de `ld (0xFD9B),hl`, con el que un juego de Konami
 instala su rutina de interrupción en el gancho H.KEYI.
 
 Eso convierte una decisión de estilo de la casa en la llave de todo el
-cartucho. Comprobado sobre las 42 ROM de cartucho de la colección: **las 40 de
-Konami la llevan**. Las dos únicas que no son Casio World Open —que no es de
-Konami— y el propio Game Master.
+cartucho. Comprobado sobre las 67 ROM de cartucho de la colección: **de las 60
+de Konami, 53 la llevan**. Las siete que no son los seis cartuchos de MSX2
+(Vampire Killer, King Kong 2, Hinotori, Ganbare Goemon, Metal Gear y The
+Treasure of Usas) y la versión europea del propio Game Master.
 
 ## La segunda cabecera, vista desde el otro lado
 
-**Ocho** de los juegos que hay aquí llevan en `0x4010` una segunda cabecera que
+**Dieciséis** de los juegos que hay aquí llevan en `0x4010` una segunda cabecera que
 no hacía nada visible, y todos ellos están desensamblados en esta serie. El
 marcador de delante no va por número de catálogo, va por **año**:
 
 | marcador | año | cartuchos |
 |---|---|---|
 | `AB` | 1985 | Konami's Soccer y Football (RC-732), Konami's Boxing (RC-736), Yie Ar Kung-Fu II (RC-737) |
-| `CD` | 1986-87 | The Goonies (RC-734), Knightmare (RC-739), Twin Bee (RC-740), Nemesis (RC-742), F-1 Spirit (RC-752) |
+| `CD` | 1986-87 | The Goonies (RC-734), Knightmare (RC-739), Twin Bee (RC-740), Nemesis (RC-742), Penguin Adventure (RC-743), King Kong 2 (RC-745), Q*bert (RC-746), Ganbare Goemon (RC-748), The Maze of Galious (RC-749), Metal Gear (RC-750), Nemesis 2 (RC-751), F-1 Spirit (RC-752), The Treasure of Usas (RC-753) |
 
 RC-734 es de 1986 y RC-736 y RC-737 de 1985, que es lo que descarta el número
 como criterio. Se sabía que la cabecera estaba; no para qué.

@@ -30,10 +30,11 @@ O sea que no parchea el juego: parchea la **copia en RAM de su arranque**. A
 partir de ahí se ejecuta una vez por fotograma dentro del juego y puede tocarle
 las variables.
 
-Funciona con todo el catálogo porque todos los cartuchos de Konami arrancan
-igual. Comprobado sobre las 42 ROM de cartucho de la colección: **las 40 de
-Konami llevan esa instrucción** en los 256 bytes de su INIT. Las dos únicas que
-no son Casio World Open —que no es de Konami— y el propio Game Master.
+Funciona con el catálogo de MSX1 de Konami porque todos esos cartuchos arrancan
+igual. Comprobado sobre las 67 ROM de cartucho de la colección: de las 60 de
+Konami, **53 llevan esa instrucción** en los 256 bytes de su INIT. Las siete que
+no son los seis cartuchos de MSX2 (Vampire Killer, King Kong 2, Hinotori, Ganbare Goemon, Metal Gear y The Treasure of Usas) y la versión europea del propio Game
+Master.
 
 ## Cómo sabe qué juego tiene al lado
 
@@ -43,8 +44,8 @@ Dos caminos, y el orden importa (`0x5E64`):
 con `AB` y con `CD`. Si es `AB` se trae 19 bytes tal cual; si es `CD`, 21, y
 los reparte según un **byte de banderas**: cada `rra` saca un bit que dice si
 el campo que viene está o no, y el que no viene se queda con el valor por
-defecto de `0x6034`. De las 42 ROM de la colección sólo cinco llevan esa
-cabecera.
+defecto de `0x6034`. De las 67 ROM de cartucho de la colección, 17 llevan esa
+cabecera: 16 juegos (Soccer y Football son el mismo binario con otro rótulo).
 
 **2. La tabla de firmas.** Para todo lo demás —que es casi todo el catálogo—,
 `0x5EF5` **suma los 256 bytes que van de `0x5000` a `0x50FF`** de la ROM del

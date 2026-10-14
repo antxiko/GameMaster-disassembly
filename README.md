@@ -30,8 +30,9 @@ Konami game uses to install its interrupt routine. It swaps it for five bytes
 so the game's hook is saved and control passes to the Game Master, then runs
 the patched copy.
 
-Checked over the 42 cartridge ROMs in the collection: **all 40 Konami ones
-carry that instruction**.
+Checked over the 67 cartridge ROMs in the collection: **53 of the 60 by Konami
+carry that instruction**; the seven that do not are the six MSX2 cartridges and
+the European version of the Game Master itself.
 
 ## Reproducing it
 

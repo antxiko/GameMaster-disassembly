@@ -1,26 +1,27 @@
 # Findings
 
-## The instruction all 40 Konami cartridges carry
+## The instruction Konami's MSX1 cartridges carry
 
 The Game Master gets inside the game by looking for `9B FD` in the first 256
 bytes of its start-up: the operand of `ld (0xFD9B),hl`, with which a Konami
 game installs its interrupt routine into the H.KEYI hook.
 
 That turns a house style decision into the key to the whole cartridge. Checked
-over the 42 cartridge ROMs in the collection: **all 40 Konami ones carry it**.
-The only two that do not are Casio World Open — not a Konami title — and the
-Game Master itself.
+over the 67 cartridge ROMs in the collection: **of the 60 by Konami, 53 carry
+it**. The seven that do not are the six MSX2 cartridges (Vampire Killer, King
+Kong 2, Hinotori, Ganbare Goemon, Metal Gear and The Treasure of Usas) and the
+European version of the Game Master itself.
 
 ## The second header, seen from the other side
 
-**Eight** of the games here carry a second header at `0x4010` that did nothing
+**Sixteen** of the games here carry a second header at `0x4010` that did nothing
 visible, and every one of them is disassembled in this series. The marker in
 front does not follow the catalogue number, it follows the **year**:
 
 | marker | year | cartridges |
 |---|---|---|
 | `AB` | 1985 | Konami's Soccer and Football (RC-732), Konami's Boxing (RC-736), Yie Ar Kung-Fu II (RC-737) |
-| `CD` | 1986-87 | The Goonies (RC-734), Knightmare (RC-739), Twin Bee (RC-740), Nemesis (RC-742), F-1 Spirit (RC-752) |
+| `CD` | 1986-87 | The Goonies (RC-734), Knightmare (RC-739), Twin Bee (RC-740), Nemesis (RC-742), Penguin Adventure (RC-743), King Kong 2 (RC-745), Q*bert (RC-746), Ganbare Goemon (RC-748), The Maze of Galious (RC-749), Metal Gear (RC-750), Nemesis 2 (RC-751), F-1 Spirit (RC-752), The Treasure of Usas (RC-753) |
 
 RC-734 is from 1986 while RC-736 and RC-737 are from 1985, which is what rules
 the number out as the criterion. We knew the header was there; not what for.
