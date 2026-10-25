@@ -127,3 +127,27 @@ enter the neighbouring routine with a different value, that nobody jumps to.
 It is not the mirage of reading an operand as an opcode, because they do not
 fall inside another instruction. They are leftovers from an earlier build:
 there are three of this cartridge.
+
+## Code shared with other Konami cartridges
+
+This disassembly has been compared, instruction by instruction, with
+every other Konami one in the series. A block counts when the same
+instructions, at least six of them from a label to its `ret` or its
+unconditional jump, are in both cartridges; the addresses are left
+aside, because they change from one cartridge to the next. Of the
+other 57, **30** have at least one block in common with this one;
+these are the ones that share the most:
+
+| Cartridge | Blocks | Instructions | For example (here = there) |
+|---|---:|---:|---|
+| [Konami’s Game Master 2](https://antxiko.github.io/GameMaster2-disassembly/) | 155 | 2,447 | `lee_las_teclas_de_truco` (0x4F13) = `lee_teclas` |
+| [Konami's Synthesizer](https://antxiko.github.io/KonamiSynthesizer-disassembly/) | 15 | 177 | `posicion_a_vram` (0x7612) = `nombre_del_punto` |
+| [King's Valley II](https://antxiko.github.io/KingsValley2-disassembly/) | 9 | 81 | `posicion_a_vram` (0x7612) |
+| [Gekitotsu Pennant Race 2](https://antxiko.github.io/PennantRace2-disassembly/) | 8 | 68 | 0x6957 = `abre_fichero` |
+| [Shalom: Knightmare III](https://antxiko.github.io/Shalom-disassembly/) | 8 | 80 | `intercambia_bloques` (0x6871) = `intercambia_ram` |
+| [The Pro Yakyuu Gekitotsu Pennant Race](https://antxiko.github.io/PennantRace-disassembly/) | 6 | 53 | `escribe_en_disco` (0x6987) |
+| [The Maze of Galious](https://antxiko.github.io/MazeOfGalious-disassembly/) | 5 | 58 | 0x533B = `columna_del_logotipo` |
+
+The whole matrix, the 58 cartridges against each other, is on
+[The routines](https://antxiko.github.io/MSX-disassembly-database/THE-ROUTINES.html) in the series database, along
+with the method and the program that measures it.
